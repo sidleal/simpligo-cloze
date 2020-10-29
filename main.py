@@ -1,3 +1,4 @@
+import math
 import time
 import pandas as pd
 import nlpnet
@@ -60,9 +61,11 @@ def write_output_header():
     header = 'Participant\tWord_Unique_ID\tText_ID\tWord_Number\tSentence_Number\tWord_In_Sentence_Number\t' \
              'Word_Place_In_Sent\tSent_Length\tWord\tWord_Cleaned\tWord_Length\tAnswer\tOrthographicMatch\t' \
              'POS\tWord_Content_Or_Function\tWord_POS\tWord_Tag_DELAF\tAnswer_Tag_DELAF\tPOSMatch\t' \
-             'Word_Morph_DELAF\tAnswer_Morph_DELAF\tInflectionMatch\tFreq_Corpus_Brasileiro\tFreq_brWaC\tGenre\t' \
+             'Word_Morph_DELAF\tAnswer_Morph_DELAF\tInflectionMatch\tFreq_Corpus_Brasileiro\tLog_Freq_Brasileiro\t' \
+             'Freq_brWaC\tLog_Freq_brWaC\tGenre\t' \
              'LSA_Context_Score\tLSA_Response_Match_Score\tFastText_Context_Score\tFastText_Response_Match_Score\t' \
-             'Word2Vec_Context_Score\tWord2Vec_Response_Match_Score\tTime_to_Start\tTyping_Time\tTotal_time\n'
+             'Word2Vec_Context_Score\tWord2Vec_Response_Match_Score\tAvg_Context_Score\tAvg_Response_Match_Score\t' \
+             'Time_to_Start\tTyping_Time\tTotal_time\n'
     print(header)
     f.write(header)
 
@@ -71,18 +74,32 @@ def write_output_line(part, word_id, text_id, widx, sent, wsidx, word_place_in_s
                       ortho_match, tag, content_func, tag_desc, w_tag_delaf, a_tag_delaf, pos_match,
                       w_morph_delaf, a_morph_delaf, morph_match, freq_cb, freq_brwac, genre, lsa_sim_ctx,
                       lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time):
+
+    avg_sim_ctx = round((lsa_sim_ctx + ft_sim_ctx + w2v_sim_ctx)/3, 5)
+    avg_sim = round((lsa_sim + ft_sim + w2v_sim)/3, 5)
+
+    log_freq_cb, log_freq_brwac = 0, 0
+    if freq_cb > 0:
+        log_freq_cb = round(math.log(freq_cb), 5)
+    if freq_brwac > 0:
+        log_freq_brwac = round(math.log(freq_brwac), 5)
+
     line = '%s\t%s\t%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t%s\t%s\t' \
-           '%s\t%s\t%s\t%s\t%s\t%s\t' \
+           '%s\t%s\t%s\t%s\t%s\t' \
+           '%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t' \
-           '%s\t%s\t%s\t%s\t%s\n' \
+           '%s\t%s\t%s\t%s\t' \
+           '%s\t%s\t%s\n' \
            % (part, word_id, text_id, widx, sent, wsidx,
               word_place_in_sent, sent_length, w_raw, w, len(w), a, ortho_match,
               tag, content_func, tag_desc, w_tag_delaf, a_tag_delaf, pos_match,
-              w_morph_delaf, a_morph_delaf, morph_match, freq_cb, freq_brwac, genre,
+              w_morph_delaf, a_morph_delaf, morph_match, freq_cb, log_freq_cb,
+              freq_brwac, log_freq_brwac, genre,
               lsa_sim_ctx, lsa_sim, ft_sim_ctx, ft_sim,
-              w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time)
+              w2v_sim_ctx, w2v_sim, avg_sim_ctx, avg_sim,
+              time_start, time_dig, total_time)
 
     f.write(line)
 
@@ -296,6 +313,15 @@ def get_similarity(word, text):
     w2v_text_emb = word2vec(text, embeddings['word2vec'])
     w2v_sim = similarity(w2v_word_emb, w2v_text_emb)
 
+    if lsa_sim > 1 or lsa_sim < -1:
+        lsa_sim = 0
+
+    if ft_sim > 1 or ft_sim < -1:
+        ft_sim = 0
+
+    if w2v_sim > 1 or w2v_sim < -1:
+        w2v_sim = 0
+
     return round(lsa_sim, 5), round(ft_sim, 5), round(w2v_sim, 5)
 
 
@@ -410,6 +436,35 @@ def get_annotation(answer):
     return correcao, tag, morph
 
 
+def load_nlpnet_exceptions():
+    ret = pd.read_csv('data/nlpnet_exceptions.tsv', sep='\t')
+    return ret
+
+
+nlpnet_exceptions_cache = {}
+
+
+def get_nlpnet_exception(w):
+    ret = 'ERR'
+
+    if w in nlpnet_exceptions_cache:
+        ret = nlpnet_exceptions_cache[w]
+        return ret
+
+    try:
+        itens = nlpnet_exceptions.loc[nlpnet_exceptions['word'] == w]
+        first = itens.iloc[0]
+        ret = first['tag']
+
+    except Exception as exc:
+        # print("get_annotation", answer, "-->", exc)
+        ret = 'ERR'
+
+    nlpnet_exceptions_cache[w] = ret
+
+    return ret
+
+
 if __name__ == '__main__':
     print('--- Inicia processamento...')
     ini = time.time()
@@ -434,6 +489,10 @@ if __name__ == '__main__':
     answers_annotation = load_answers_annotations()
     print("Tempo: ", time.time() - ini)
 
+    print('--- Carregando exceções nlpnet...')
+    nlpnet_exceptions = load_nlpnet_exceptions()
+    print("Tempo: ", time.time() - ini)
+
     f = open("out/%s" % output_file, "w")
     write_output_header()
 
@@ -451,7 +510,7 @@ if __name__ == '__main__':
     wsidx, sent_length, word_place_in_sent = 0, 0, 0
     last_sent, last_text = 0, 0
     pos_words_ctl, cache_sim, cache_sim_ctx = {}, {}, {}
-    preceding_passage = ""
+    preceding_passage, last_word_id = "", ""
 
     print('--- Inicia loop das palavras...')
 
@@ -495,10 +554,17 @@ if __name__ == '__main__':
         w = clean_word(w)
         a = clean_word(a)
 
+        if word_id == last_word_id: #  avoid repetitions
+            continue
+        last_word_id = word_id
+
         wtg = get_pos_nlpnet_word_ctl(pos_words_ctl, w)
         tag = "ERR"
         if wtg in paragraphs_tags[cloze_par_id - 1]:
             tag = paragraphs_tags[cloze_par_id - 1][wtg]
+
+        if tag == "ERR":
+            tag = get_nlpnet_exception(w)
 
         tag_desc = tag_map_nlpnet[tag]
         content_func = content_or_function_word(tag)
