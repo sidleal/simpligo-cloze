@@ -5,6 +5,9 @@ import nlpnet
 import numpy as np
 import string
 import pickle
+
+import requests
+import xml.dom.minidom
 from scipy import spatial
 import gensim
 
@@ -33,39 +36,24 @@ def clean_word(word):
 
 
 def load_main_dataset():
-    df_puc = pd.read_csv('data/cloze_puc_%s.csv' % process_date)
-    df_usp = pd.read_csv('data/cloze_usp_%s.csv' % process_date)
-    df_ufc = pd.read_csv('data/cloze_ufc_%s.csv' % process_date)
-    df_ufabc = pd.read_csv('data/cloze_ufabc_%s.csv' % process_date)
-    df_utfpr = pd.read_csv('data/cloze_utfpr_%s.csv' % process_date)
-    df_uerj = pd.read_csv('data/cloze_uerj_%s.csv' % process_date)
+    df_all = pd.read_csv('data/cloze_all_%s.csv' % process_date)
+    print("total:", df_all['Palavra'].count())
 
-    ret = df_puc.append(df_usp, ignore_index=True)
-    ret = ret.append(df_ufc, ignore_index=True)
-    ret = ret.append(df_ufabc, ignore_index=True)
-    ret = ret.append(df_utfpr, ignore_index=True)
-    ret = ret.append(df_uerj, ignore_index=True)
-
-    print("puc:", df_puc['Palavra'].count())
-    print("usp:", df_usp['Palavra'].count())
-    print("ufc:", df_ufc['Palavra'].count())
-    print("ufabc:", df_ufabc['Palavra'].count())
-    print("utfpr:", df_utfpr['Palavra'].count())
-    print("uerj:", df_uerj['Palavra'].count())
-    print("total:", ret['Palavra'].count())
-
-    return ret
+    return df_all
 
 
 def write_output_header():
     header = 'Participant\tWord_Unique_ID\tText_ID\tWord_Number\tSentence_Number\tWord_In_Sentence_Number\t' \
              'Word_Place_In_Sent\tSent_Length\tWord\tWord_Cleaned\tWord_Length\tAnswer\tOrthographicMatch\t' \
-             'POS\tWord_Content_Or_Function\tWord_POS\tWord_Tag_DELAF\tAnswer_Tag_DELAF\tPOSMatch\t' \
-             'Word_Morph_DELAF\tAnswer_Morph_DELAF\tInflectionMatch\tFreq_Corpus_Brasileiro\tLog_Freq_Brasileiro\t' \
+             'POS\tWord_Content_Or_Function\tWord_POS\tWord_Tag_PALAVRAS\tAnswer_Tag_PALAVRAS\tPOSMatch\t' \
+             'Word_Morph_PALAVRAS\tAnswer_Morph_PALAVRAS\tInflectionMatch\t' \
+             'Freq_Corpus_Brasileiro\tLog_Freq_Brasileiro\t' \
              'Freq_brWaC\tLog_Freq_brWaC\tGenre\t' \
              'LSA_Context_Score\tLSA_Response_Match_Score\tFastText_Context_Score\tFastText_Response_Match_Score\t' \
              'Word2Vec_Context_Score\tWord2Vec_Response_Match_Score\tAvg_Context_Score\tAvg_Response_Match_Score\t' \
-             'Time_to_Start\tTyping_Time\tTotal_time\n'
+             'Time_to_Start\tTyping_Time\tTotal_time\t' \
+             'Word_Tag_DELAF\tAnswer_Tag_DELAF\tWord_Morph_DELAF\tAnswer_Morph_DELAF\t' \
+             'Word_Lemma_PALAVRAS\tAnswer_Lemma_PALAVRAS\n'
     print(header)
     f.write(header)
 
@@ -73,7 +61,9 @@ def write_output_header():
 def write_output_line(part, word_id, text_id, widx, sent, wsidx, word_place_in_sent, sent_length, w_raw, w, a,
                       ortho_match, tag, content_func, tag_desc, w_tag_delaf, a_tag_delaf, pos_match,
                       w_morph_delaf, a_morph_delaf, morph_match, freq_cb, freq_brwac, genre, lsa_sim_ctx,
-                      lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time):
+                      lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time,
+                      palavras_tag, palavras_lemma, palavras_morph,
+                      palavras_answer_tag, palavras_answer_lemma,  palavras_answer_morph):
 
     avg_sim_ctx = round((lsa_sim_ctx + ft_sim_ctx + w2v_sim_ctx)/3, 5)
     avg_sim = round((lsa_sim + ft_sim + w2v_sim)/3, 5)
@@ -91,15 +81,19 @@ def write_output_line(part, word_id, text_id, widx, sent, wsidx, word_place_in_s
            '%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t' \
-           '%s\t%s\t%s\n' \
+           '%s\t%s\t%s\t' \
+           '%s\t%s\t%s\t%s\t' \
+           '%s\t%s\n' \
            % (part, word_id, text_id, widx, sent, wsidx,
               word_place_in_sent, sent_length, w_raw, w, len(w), a, ortho_match,
-              tag, content_func, tag_desc, w_tag_delaf, a_tag_delaf, pos_match,
-              w_morph_delaf, a_morph_delaf, morph_match, freq_cb, log_freq_cb,
+              tag, content_func, tag_desc, palavras_tag, palavras_answer_tag, pos_match,
+              palavras_morph, palavras_answer_morph, morph_match, freq_cb, log_freq_cb,
               freq_brwac, log_freq_brwac, genre,
               lsa_sim_ctx, lsa_sim, ft_sim_ctx, ft_sim,
               w2v_sim_ctx, w2v_sim, avg_sim_ctx, avg_sim,
-              time_start, time_dig, total_time)
+              time_start, time_dig, total_time,
+              w_tag_delaf, a_tag_delaf, w_morph_delaf, a_morph_delaf,
+              palavras_lemma, palavras_answer_lemma)
 
     f.write(line)
 
@@ -153,7 +147,7 @@ tag_map_nlpnet = {'ADJ': 'Adjetivo',
                   'ERR': 'Erro'}
 
 
-def get_pos_nlpnet_word_ctl(ctl, w):
+def get_pos_word_ctl(ctl, w):
     if w not in ctl:
         ctl[w] = 1
     else:
@@ -176,13 +170,13 @@ def get_pos_nlpnet_all_pars(paragraphs):
             for w_tag in s_tag:
                 word_tag = w_tag[0].lower()
                 word_tag = word_tag.replace(',', '.')
-                word_tag = get_pos_nlpnet_word_ctl(pos_words_ctl, word_tag)
+                word_tag = get_pos_word_ctl(pos_words_ctl, word_tag)
 
                 tags[word_tag] = w_tag[1]
                 if '-' in word_tag:
-                    w1 = get_pos_nlpnet_word_ctl(pos_words_ctl, word_tag.split('-')[0])
+                    w1 = get_pos_word_ctl(pos_words_ctl, word_tag.split('-')[0])
                     tags[w1] = w_tag[1]
-                    w2 = get_pos_nlpnet_word_ctl(pos_words_ctl, word_tag.split('-')[1])
+                    w2 = get_pos_word_ctl(pos_words_ctl, word_tag.split('-')[1])
                     tags[w2] = w_tag[1]
                 # print(p_id, word_tag, w_tag[1])
         pars_tags[p_id] = tags
@@ -200,18 +194,26 @@ def content_or_function_word(tag):
 
 def get_sentence_lengths():
     sentence_lengths = {}
+    sentences = {}
     for i, p in enumerate(df['Parágrafo']):
         sent_len_key = '%s_%s' % (p, df['Sentença'][i])
         if sent_len_key not in sentence_lengths:
             max_wid = 0
+            last_wid = 0
+            sentences[sent_len_key] = {}
             for j, wid in enumerate(df['Índice Palavra']):
+                if wid == last_wid:
+                    continue
                 if df['Parágrafo'][j] == p and df['Sentença'][j] == df['Sentença'][i]:
+                    sentences[sent_len_key][wid] = df['Palavra'][j]
                     max_wid += 1
                 else:
                     if max_wid > 0:
                         sentence_lengths[sent_len_key] = max_wid
                         break
-    return sentence_lengths
+                last_wid = wid
+            sentence_lengths[sent_len_key] = max_wid
+    return sentence_lengths, sentences
 
 
 def get_word_place_in_sent(wsidx, sent_length):
@@ -465,6 +467,74 @@ def get_nlpnet_exception(w):
     return ret
 
 
+def get_pos_palavras(text):
+    url = "http://fw.nilc.icmc.usp.br:23380/api/v1/palavras/tigerxml/m3tr1x01"
+
+    pos_words_ctl = {}
+    dict_ret = {}
+    try:
+        text = text.replace('"', '').replace('”', '')
+        # ret = requests.post(url, {"content": text, "options": "--dep-fuse"}).text
+        ret = requests.post(url, {"content": text, "options": "--dep-retokenize"}).text
+
+        ret = ret.replace("\n", "").replace("\t", "").replace("</ß></ß>", "</ß>")
+        print(ret)
+        doc = xml.dom.minidom.parseString(ret)
+        ts = doc.getElementsByTagName('t')
+        for t in ts:
+            word_tag = t.getAttribute("word")
+            if "_" in word_tag:
+                for w_item in word_tag.split('_'):
+                    word_tag = get_pos_word_ctl(pos_words_ctl, w_item.lower())
+                    dict_ret[word_tag] = {}
+                    dict_ret[word_tag]['pos'] = t.getAttribute("pos")
+                    dict_ret[word_tag]['lemma'] = t.getAttribute("lemma")
+                    dict_ret[word_tag]['morph'] = ""
+                    if t.getAttribute("morph") != "--":
+                        dict_ret[word_tag]['morph'] = t.getAttribute("morph")
+            else:
+                word_tag = get_pos_word_ctl(pos_words_ctl, word_tag.lower())
+                dict_ret[word_tag] = {}
+                dict_ret[word_tag]['pos'] = t.getAttribute("pos")
+                dict_ret[word_tag]['lemma'] = t.getAttribute("lemma")
+                dict_ret[word_tag]['morph'] = ""
+                if t.getAttribute("morph") != "--":
+                    dict_ret[word_tag]['morph'] = t.getAttribute("morph")
+
+    except Exception as exc:
+        print("palavras-online", text, "-->", exc)
+
+    return dict_ret
+
+
+cache_tags_pos_palavras_words = {}
+
+
+def get_pos_palavras_cache(word_id, w, wtg):
+    p_tag, p_lemma, p_morph = "", "", ""
+    try:
+        word_id_palavras_key = "%s_%s" % (word_id, w)
+        if word_id_palavras_key in cache_tags_pos_palavras_words:
+            p_tag = cache_tags_pos_palavras_words[word_id_palavras_key]["pos"]
+            p_lemma = cache_tags_pos_palavras_words[word_id_palavras_key]["lemma"]
+            p_morph = cache_tags_pos_palavras_words[word_id_palavras_key]["morph"]
+        else:
+            p_tag = tags_pos_palavras[wtg]["pos"]
+            p_lemma = tags_pos_palavras[wtg]["lemma"]
+            p_morph = tags_pos_palavras[wtg]["morph"]
+
+            cache_tags_pos_palavras_words[word_id_palavras_key] = {}
+            cache_tags_pos_palavras_words[word_id_palavras_key]["pos"] = p_tag
+            cache_tags_pos_palavras_words[word_id_palavras_key]["lemma"] = p_lemma
+            cache_tags_pos_palavras_words[word_id_palavras_key]["morph"] = p_morph
+
+    except Exception as exc:
+        print("palavras-online", word_id, w, "-->", exc)
+        p_tag = "ERR"
+
+    return p_tag, p_lemma, p_morph
+
+
 if __name__ == '__main__':
     print('--- Inicia processamento...')
     ini = time.time()
@@ -503,16 +573,23 @@ if __name__ == '__main__':
     print("Tempo: ", time.time() - ini)
 
     print('--- calcula tamanhos das sentenças...')
-    sentence_lengths = get_sentence_lengths()
+    sentence_lengths, sentences = get_sentence_lengths()
     print("Tempo: ", time.time() - ini)
 
-    total_lines = 0
+    total_lines_count = 1
     wsidx, sent_length, word_place_in_sent = 0, 0, 0
     last_sent, last_text = 0, 0
-    pos_words_ctl, cache_sim, cache_sim_ctx = {}, {}, {}
+    pos_words_nlpnet_ctl, pos_words_palavras_ctl, cache_sim, cache_sim_ctx = {}, {}, {}, {}
     preceding_passage, last_word_id = "", ""
+    wtg_nlpnet, wtg_palavras = 0, 0
+    sentence, tags_pos_palavras, cache_tags_pos_palavras_sents = {}, {}, {}
+    text_sent, first_word = "", ""
+
+    print(sentences)
 
     print('--- Inicia loop das palavras...')
+
+    total_lines = df['Palavra'].count()
 
     for i, w in enumerate(df['Palavra']):
         cloze_par_id = df['Parágrafo'][i]
@@ -526,23 +603,42 @@ if __name__ == '__main__':
         part = participants[part_name]
 
         sent_idx = df['Sentença'][i]
+        sent_str_id = '%s_%s' % (cloze_par_id, sent_idx)
 
-        if sent_idx == last_sent and text_id == last_text:
-            wsidx += 1
-            word_place_in_sent = get_word_place_in_sent(wsidx, sent_length)
-        else:
-            wsidx = 1
-            word_place_in_sent = 1
-            sent_length = sentence_lengths['%s_%s' % (cloze_par_id, sent_idx)]
+        if word_id != last_word_id:
+            if sent_idx == last_sent and text_id == last_text:
+                wsidx += 1
+                word_place_in_sent = get_word_place_in_sent(wsidx, sent_length)
+            else:
+                wsidx = 1
+                word_place_in_sent = 1
+                sent_length = sentence_lengths[sent_str_id]
+                sentence = sentences[sent_str_id]
 
         if text_id != last_text:
             print(text_par)
-            pos_words_ctl = {}
+            pos_words_nlpnet_ctl = {}
             first_word = text_par.split(' ')[0]
             preceding_passage = first_word
 
-        last_sent = sent_idx
-        last_text = text_id
+        if sent_idx != last_sent:
+            text_sent = ""
+            pos_words_palavras_ctl = {}
+            if sent_idx == 1:
+                text_sent +=  "%s " % first_word
+            print(sentence)
+
+            for k, v in sentence.items():
+                text_sent += "%s " % v
+
+            print("-------", text_sent)
+            if sent_str_id in cache_tags_pos_palavras_sents:
+                tags_pos_palavras = cache_tags_pos_palavras_sents[sent_str_id]
+            else:
+                tags_pos_palavras = get_pos_palavras(text_sent)
+                cache_tags_pos_palavras_sents[sent_str_id] = tags_pos_palavras
+
+            print(tags_pos_palavras)
 
         genre = text_id_genres[cloze_par_id]
         time_start = df['Tempo Início(ms)'][i]
@@ -554,14 +650,13 @@ if __name__ == '__main__':
         w = clean_word(w)
         a = clean_word(a)
 
-        if word_id == last_word_id: #  avoid repetitions
-            continue
-        last_word_id = word_id
+        if word_id != last_word_id:
+            wtg_nlpnet = get_pos_word_ctl(pos_words_nlpnet_ctl, w)
+            wtg_palavras = get_pos_word_ctl(pos_words_palavras_ctl, w)
 
-        wtg = get_pos_nlpnet_word_ctl(pos_words_ctl, w)
         tag = "ERR"
-        if wtg in paragraphs_tags[cloze_par_id - 1]:
-            tag = paragraphs_tags[cloze_par_id - 1][wtg]
+        if wtg_nlpnet in paragraphs_tags[cloze_par_id - 1]:
+            tag = paragraphs_tags[cloze_par_id - 1][wtg_nlpnet]
 
         if tag == "ERR":
             tag = get_nlpnet_exception(w)
@@ -569,7 +664,15 @@ if __name__ == '__main__':
         tag_desc = tag_map_nlpnet[tag]
         content_func = content_or_function_word(tag)
 
-        print(">", text_id, sent_idx, widx, word_id, w, tag, a)
+        palavras_tag, palavras_lemma, palavras_morph = get_pos_palavras_cache(word_id, w, wtg_palavras)
+
+        print(round((time.time() - ini)/60, 2), total_lines_count, "/", total_lines,
+              ">", text_id, sent_idx, widx, word_id, w, tag, palavras_tag, a)
+
+
+        last_sent = sent_idx
+        last_text = text_id
+        last_word_id = word_id
 
         # PoS
         w_lemma, w_tag_delaf, w_morph_delaf = get_delaf_info(w)
@@ -583,6 +686,9 @@ if __name__ == '__main__':
 
         if a_tag_delaf == '':
             a_lemma, a_tag_delaf, a_morph_delaf = get_delaf_info(a)
+
+        palavras_answer_tag, palavras_answer_lemma, palavras_answer_morph = "", "", ""
+
 
         # contextual_fit / LSA_Context_Score
         preceding_passage = '%s %s' % (preceding_passage, w)
@@ -621,11 +727,13 @@ if __name__ == '__main__':
         write_output_line(part, word_id, text_id, widx, sent_idx, wsidx, word_place_in_sent, sent_length, w_raw,
                           w, a, ortho_match, tag, content_func, tag_desc, w_tag_delaf, a_tag_delaf, pos_match,
                           w_morph_delaf, a_morph_delaf, morph_match, freq_cb, freq_brwac, genre, lsa_sim_ctx,
-                          lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time)
+                          lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time,
+                          palavras_tag, palavras_lemma, palavras_morph,
+                          palavras_answer_tag, palavras_answer_lemma, palavras_answer_morph)
 
-        total_lines += 1
+        total_lines_count += 1
 
-    print("Total lines:", total_lines)
+    print("Total lines:", total_lines_count)
 
     print("Tempo Exec: ", (time.time() - ini)/60)
 
