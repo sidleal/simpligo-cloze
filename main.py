@@ -11,8 +11,8 @@ import xml.dom.minidom
 from scipy import spatial
 import gensim
 
-output_file = "cloze_predict_29_FULL.tsv"
-process_date = "2020_10_25"
+output_file = "cloze_predict_30_FULL.tsv"
+process_date = "2020_10_31"
 
 
 def clean_word(word):
@@ -144,6 +144,23 @@ tag_map_nlpnet = {'ADJ': 'Adjetivo',
                   'PREP+PROADJ': 'Preposição',
                   'PREP+PROSUB': 'Preposição',
                   'PREP+PROPESS': 'Preposição',
+                  'ERR': 'Erro'}
+
+
+tag_map_palavras = {'N': 'Nome',
+                  'PROP': 'Nome',
+                  'SPEC': 'SPEC',
+                  'DET': 'Artigo',
+                  'PERS': 'Pronome',
+                  'ADJ': 'Adjetivo',
+                  'ADV': 'Advérbio',
+                  'V': 'Verbo',
+                  'NUM': 'Numeral',
+                  'PRP': 'Preposição',
+                  'KS': 'Conjunção',
+                  'KC': 'Conjunção',
+                  'IN': 'Interjeição',
+                  'EC': 'Elemento Composto',
                   'ERR': 'Erro'}
 
 
