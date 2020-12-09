@@ -1,18 +1,19 @@
 import math
 import time
 import pandas as pd
-import nlpnet
 import numpy as np
 import string
-import pickle
+
+import _thread
+import threading
 
 import requests
 import xml.dom.minidom
 from scipy import spatial
 import gensim
 
-output_file = "cloze_predict_30_FULL.tsv"
-process_date = "2020_10_31"
+output_file = "cloze_predict_35_FULL.tsv"
+process_date = "2020_11_26"
 
 
 def clean_word(word):
@@ -24,69 +25,80 @@ def clean_word(word):
     w = w.replace('...', '')
     w = w.replace('%', '')
     w = w.replace('?', '')
-    w = w.replace('.', '')
+    w = w.replace('!', '')
     w = w.replace(']', '')
     w = w.replace('[', '')
+    w = w.replace(')', '')
+    w = w.replace('(', '')
     w = w.replace('\\', '')
-    w = w.replace(' ', '')
+    # w = w.replace(' ', '')
     w = w.replace(' ', '_')  # \xa0
     w = w.strip()
     w = w.strip(',')
+    w = w.strip('.')
     return w
 
 
 def load_main_dataset():
-    df_all = pd.read_csv('data/cloze_all_%s.csv' % process_date)
+    df_all = pd.read_csv('data/cloze_all_%s.csv' % process_date, sep='\t', quoting=3)
     print("total:", df_all['Palavra'].count())
 
     return df_all
 
 
-def write_output_header():
+def write_output_header(f):
     header = 'Participant\tWord_Unique_ID\tText_ID\tWord_Number\tSentence_Number\tWord_In_Sentence_Number\t' \
-             'Word_Place_In_Sent\tSent_Length\tWord\tWord_Cleaned\tWord_Length\tAnswer\tOrthographicMatch\t' \
-             'POS\tWord_Content_Or_Function\tWord_POS\tAnswer_Tag\tPOSMatch\t' \
-             'Word_Morph\tAnswer_Morph\tInflectionMatch\t' \
-             'Freq_brWaC_fpm\tFreq_brWaC_log\tGenre\t' \
-             'LSA_Context_Score\tLSA_Response_Match_Score\tFastText_Context_Score\tFastText_Response_Match_Score\t' \
-             'Word2Vec_Context_Score\tWord2Vec_Response_Match_Score\tAvg_Context_Score\tAvg_Response_Match_Score\t' \
+             'Word_Place_In_Sent\tSent_Length\tWord\tWord_Cleaned\tWord_Length\tResponse\tResponse_Cleaned\t' \
+             'OrthographicMatch\t' \
+             'POS\tWord_Content_Or_Function\tWord_POS\tResponse_Tag\tPOSMatch\t' \
+             'Word_Inflection\tResponse_Inflection\tInflectionMatch\t' \
+             'Freq_brWaC_fpm\tFreq_brWaC_log\tFreq_brasileiro_fpm\tFreq_brasileiro_log\tGenre\t' \
+             'Semantic_Word_Context_Score\tSemantic_Response_Match_Score\tSemantic_Response_Context_Score\t' \
+             'Semantic_Word_Context_Score_ft\tSemantic_Response_Match_Score_ft\tSemantic_Response_Context_Score_ft\t' \
              'Time_to_Start\tTyping_Time\tTotal_time\t' \
              'Word_Lemma_\tAnswer_Lemma\n'
     print(header)
     f.write(header)
 
 
-def write_output_line(part, word_id, text_id, widx, sent, wsidx, word_place_in_sent, sent_length, w_raw, w, a,
+def write_output_line(f, part, word_id, text_id, widx, sent, wsidx, word_place_in_sent, sent_length, w_raw, w, a_raw, a,
                       ortho_match, tag, content_func, tag_desc, a_tag, pos_match,
-                      w_morph, a_morph, morph_match, freq_brwac, genre, lsa_sim_ctx,
-                      lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time,
+                      w_morph, a_morph, morph_match, freq_brwac, freq_cb, genre,
+                      sim_ctx, sim_resp_match, sim_resp_ctx,
+                      sim_ctx_ft, sim_resp_match_ft, sim_resp_ctx_ft,
+                      time_start, time_dig, total_time,
                       w_lemma, a_lemma):
 
-    avg_sim_ctx = round((lsa_sim_ctx + ft_sim_ctx + w2v_sim_ctx)/3, 5)
-    avg_sim = round((lsa_sim + ft_sim + w2v_sim)/3, 5)
-
     norm_freq_brwac = 0
-    log_freq_brwac = 0, 0
+    log_freq_brwac = 0
     if freq_brwac > 0:
-        norm_freq_brwac = round(freq_brwac * 1000000 / brwac_size, 5)
-        log_freq_brwac = round(math.log(norm_freq_brwac)+3, 5)
+        norm_freq_brwac = round(freq_brwac * 1000000 / brwac_size, 3)
+        log_freq_brwac = round(math.log(norm_freq_brwac)+3, 3)
+
+    norm_freq_bra = 0
+    log_freq_bra = 0
+    if freq_cb > 0:
+        norm_freq_bra = round(freq_cb * 1000000 / bra_size, 3)
+        log_freq_bra = round(math.log(norm_freq_bra)+3, 3)
 
     line = '%s\t%s\t%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t%s\t%s\t%s\t' \
+           '%s\t' \
+           '%s\t%s\t%s\t%s\t%s\t' \
+           '%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t' \
            '%s\t%s\t%s\t' \
-           '%s\t%s\t%s\t%s\t' \
-           '%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t' \
            '%s\t%s\n' \
            % (part, word_id, text_id, widx, sent, wsidx,
-              word_place_in_sent, sent_length, w_raw, w, len(w), a, ortho_match,
+              word_place_in_sent, sent_length, w_raw, w, len(w), a_raw, a,
+              ortho_match,
               tag, content_func, tag_desc, a_tag, pos_match,
               w_morph, a_morph, morph_match,
-              norm_freq_brwac, log_freq_brwac, genre,
-              lsa_sim_ctx, lsa_sim, ft_sim_ctx, ft_sim,
-              w2v_sim_ctx, w2v_sim, avg_sim_ctx, avg_sim,
+              norm_freq_brwac, log_freq_brwac, norm_freq_bra, log_freq_bra, genre,
+              sim_ctx, sim_resp_match, sim_resp_ctx,
+              sim_ctx_ft, sim_resp_match_ft, sim_resp_ctx_ft,
               time_start, time_dig, total_time,
               w_lemma, a_lemma)
 
@@ -141,6 +153,7 @@ tag_map_palavras = {'N': 'Nome',
                   'IN': 'Interjeição',
                   'INTJ': 'Interjeição',
                   'EC': 'Elemento Composto',
+                  'PU': "Pontuação",
                   'ERR': 'Erro'}
 
 
@@ -160,7 +173,7 @@ def get_pos_word_ctl(ctl, w):
     return '%s_%s' % (w, ctl[w])
 
 
-def get_sentence_lengths():
+def get_sentence_lengths(df):
     sentence_lengths = {}
     sentences = {}
     for i, p in enumerate(df['Parágrafo']):
@@ -222,9 +235,37 @@ def get_freq_brwac(dff, w, tag):
     return freq
 
 
+bra_size = 654481742
+
+df_freq_bra = pd.read_csv('data/freq_nathan.csv',
+                          dtype={"word": "string", "corpus_joao-rodrigues_processed.txt": int, "chc.txt": int,
+                                 "corpus_nilc.txt": int, "fapesp.txt": int, "folhinha.txt": int, "g1.txt": int,
+                                 "googlenews.txt": int, "lacioweb.txt": int, "livros-dominio-publico.txt": int,
+                                 "livros_didaticos.txt": int, "livros_portugues.txt": int, "mundo_estranho.txt": int,
+                                 "para_seu_filho_ler.txt": int, "plnbr.txt": int, "saresp.txt": int,
+                                 "SubIMDB_pt.txt": int, "wiki20-10-2016.txt": int, "corpus Nathan": int,
+                                 "corpus Nathan2": int, "corpus_brasileiro.txt": int})
+
+cache_freq_bra = {}
+
+
+def get_freq_cb(dff, w):
+    freq = 0
+    try:
+        if w in cache_freq_bra:
+            return cache_freq_bra[w]
+
+        freq = dff.loc[dff['word'] == w].iloc[0]['corpus_brasileiro.txt']
+    except Exception as exc:
+        print("freq-CB", w, "-->", exc)
+
+    cache_freq_bra[w] = freq
+    return freq
+
+
 # semantic similarity =================
 
-def word2vec(text, embeddings):
+def getVectorsEmbeddings(text, embeddings):
     translator = str.maketrans('', '', string.punctuation)
     text = text.translate(translator)
     tokens = text.split()
@@ -249,49 +290,80 @@ def similarity(vec, context_vec):
 
 
 def get_similarity(word, text):
-    lsa_word_emb = word2vec(word, embeddings['lsa'])
-    lsa_text_emb = word2vec(text, embeddings['lsa'])
-    lsa_sim = similarity(lsa_word_emb, lsa_text_emb)
 
-    ft_word_emb = word2vec(word, embeddings['fasttext'])
-    ft_text_emb = word2vec(text, embeddings['fasttext'])
-    ft_sim = similarity(ft_word_emb, ft_text_emb)
+    tokens = word.split(" ")
+    if len(tokens) > 1:
+        word = tokens[0]
 
-    w2v_word_emb = word2vec(word, embeddings['word2vec'])
-    w2v_text_emb = word2vec(text, embeddings['word2vec'])
-    w2v_sim = similarity(w2v_word_emb, w2v_text_emb)
+    ft_word_emb = getVectorsEmbeddings(word, embeddings['fasttext'])
+    ft_text_emb = getVectorsEmbeddings(text, embeddings['fasttext'])
+    try:
+        ft_sim = similarity(ft_word_emb, ft_text_emb)
+    except Exception as exc:
+        print("===========================================================================================")
+        print("---", word)
+        print("---", text)
+        print("---", ft_word_emb)
+        print("---", ft_text_emb)
+        print(exc)
+        print("===========================================================================================")
+        exit(1)
 
-    if lsa_sim > 1 or lsa_sim < -1:
-        lsa_sim = 0
-
-    if ft_sim > 1 or ft_sim < -1:
+    if ft_sim > 1:
+        ft_sim = 1
+    if ft_sim < 0:
         ft_sim = 0
 
-    if w2v_sim > 1 or w2v_sim < -1:
-        w2v_sim = 0
+    context = '[CLS] %s [MASK] [SEP]' % text
+    bert_score = calc_score_task1(context, word, tokenizer, model)
+    if bert_score is None:
+        bert_score = -100
+    # ret = bert_score
+    # if ret is None:
+    #     print("bert - none: ", word, ft_sim)
+    #     ret = ft_sim
 
-    return round(lsa_sim, 5), round(ft_sim, 5), round(w2v_sim, 5)
+    return bert_score, ft_sim
+
+
+def get_similarity_match(word, answer, text):
+    tokens = answer.split(" ")
+    if len(tokens) > 1:
+        answer = tokens[0]
+
+    ft_word_emb = getVectorsEmbeddings(word, embeddings['fasttext'])
+    ft_text_emb = getVectorsEmbeddings(answer, embeddings['fasttext'])
+    ft_sim = similarity(ft_word_emb, ft_text_emb)
+
+    if ft_sim > 1:
+        ft_sim = 1
+    if ft_sim < 0:
+        ft_sim = 0
+
+    context = '[CLS] %s [MASK] [SEP]' % text
+    bert_score = calc_score_task2(context, word, answer, tokenizer, model)
+    if bert_score is None:
+        bert_score = -100
+    # ret = bert_score
+    # if ret is None:
+    #     print("bert - none: ", word, answer, ft_sim)
+    #     ret = ft_sim
+
+    return bert_score, ft_sim
 
 
 embeddings = {}
 
 
 def load_embeddings():
-    lsa_embeddings_file = 'data/brwac_full_lsa_word_dict.pkl'
-
-    with open(lsa_embeddings_file, 'rb') as f:
-        embeddings['lsa'] = pickle.load(f)
-
     fasttext_embedding_file = 'data/bbp_fasttext_cbow_300d.txt'
-    word2vec_embedding_file = 'data/bbp_word2vec_cbow_300d.txt'
     embeddings['fasttext'] = gensim.models.KeyedVectors.load_word2vec_format(fasttext_embedding_file)
-    embeddings['word2vec'] = gensim.models.KeyedVectors.load_word2vec_format(word2vec_embedding_file)
 
 
 # semantic similarity =====================
 
 
-def anonymize_participants():
+def anonymize_participants(df):
     participants = {}
 
     fp = open("out/participants_%s.tsv" % process_date, "w")
@@ -322,6 +394,9 @@ annotation_cache = {}
 
 def get_annotation(answer):
     correcao, tag, morph = '', '', ''
+
+    if answer.strip() == "":
+        return "", "RANDOM", ""
 
     if answer in annotation_cache:
         correcao = annotation_cache[answer]['correcao']
@@ -363,47 +438,26 @@ def call_palavras(text):
         print("palavras-online", text, "-->", exc)
 
 
-def get_pos_palavras_answer(text, wsidx, a):
-    try:
-        words = text.strip().split(" ")
-        new_text = ""
-        i = 1
-        for word in words:
-            if i == wsidx:
-                new_text += "%s " % a
-            else:
-                new_text += "%s " % word
-            i+=1
+def get_pos_palavras_answer(preceding_passage, a):
+    ret = {}
 
+    try:
+        new_text = "%s %s" % (preceding_passage, a)
         doc = call_palavras(new_text)
         ts = doc.getElementsByTagName('t')
 
-        candidates = []
-        i = 1
-        for t in ts:
-            word_tag = t.getAttribute("word").lower()
-            if word_tag == a:
-                ret = {}
-                ret['idx'] = i
-                ret['pos'] = t.getAttribute("pos").upper()
-                ret['lemma'] = t.getAttribute("lemma")
-                ret['morph'] = ""
-                if t.getAttribute("morph") != "--":
-                    ret['morph'] = t.getAttribute("morph")
-                candidates.append(ret)
-            i+=1
+        last_t = ts[len(ts)-1]
 
-        if len(candidates) == 1:
-            return candidates[0]
-        else:
-            weighted_candidates = {}
-            for item in candidates:
-                weighted_candidates[math.pow(wsidx-item['idx'],2)] = item
-            ordered_candidates = {k: v for k, v in sorted(weighted_candidates.items(), key=lambda item: item[0])}
-            return list(ordered_candidates.values())[0]
+        ret['pos'] = last_t.getAttribute("pos").upper()
+        ret['lemma'] = last_t.getAttribute("lemma")
+        ret['morph'] = ""
+        if last_t.getAttribute("morph") != "--":
+            ret['morph'] = last_t.getAttribute("morph")
 
     except Exception as exc:
-        print("get_pos_palavras_answer", text, a, "-->", exc)
+        print("get_pos_palavras_answer", preceding_passage, a, "-->", exc)
+
+    return ret
 
 
 def get_pos_palavras(text):
@@ -438,10 +492,33 @@ def get_pos_palavras(text):
     return dict_ret
 
 
-cache_tags_pos_palavras_words = {}
+cache_tags_pos_palavras_words = {
+    "UID_9_50_01": {"pos": "NUM", "lemma": "01", "morph": ""},
+    "UID_13_64_02": {"pos": "NUM", "lemma": "02", "morph": ""},
+    "UID_9_19_005": {"pos": "NUM", "lemma": "005", "morph": ""},
+    "UID_32_36_19": {"pos": "NUM", "lemma": "19", "morph": ""},
+    "UID_13_51_32": {"pos": "NUM", "lemma": "32", "morph": ""},
+    "UID_18_11_343": {"pos": "NUM", "lemma": "343", "morph": ""},
+    "UID_48_13_d": {"pos": "PROP", "lemma": "d", "morph": ""},
+    "UID_15_46_do": {"pos": "PRP", "lemma": "de+o", "morph": ""},
+    "UID_23_52_do": {"pos": "PRP", "lemma": "de+o", "morph": ""},
+    "UID_32_12_no": {"pos": "PRP", "lemma": "em+o", "morph": ""},
+    "UID_9_36_nos": {"pos": "PRP", "lemma": "em+o", "morph": ""},
+    "UID_46_26_nisso": {"pos": "PRP", "lemma": "em+isso", "morph": ""},
+    "UID_2_31_dentre": {"pos": "PRP", "lemma": "de+entre", "morph": ""},
+    "UID_4_60_repeti-la": {"pos": "V-INF", "lemma": "repetir", "morph": "1S"},
+    "UID_8_34_depositando-se": {"pos": "V-GER", "lemma": "depositar", "morph": ""},
+    "UID_5_8_torna-se": {"pos": "V-FIN", "lemma": "tornar", "morph": "PR 3S IND VFIN"},
+    "UID_27_45_tornou-se": {"pos": "V-FIN", "lemma": "tornar", "morph": "PS 3S IND VFIN"},
+    "UID_44_23_d’água": {"pos": "PRP", "lemma": "de", "morph": ""},
+    "UID_44_34_embebendo-se": {"pos": "V-GER", "lemma": "embeber", "morph": ""},
+    "UID_44_35_embebendo-se": {"pos": "V-GER", "lemma": "embeber", "morph": ""},
+    "UID_46_35_resolveu-se": {"pos": "V-FIN", "lemma": "resolver", "morph": "PS 3S IND VFIN"},
+    "UID_46_41_aparecer-lhe": {"pos": "V-INF", "lemma": "aparecer", "morph": "3S"}
+}
 
 
-def get_pos_palavras_cache(word_id, w, wtg):
+def get_pos_palavras_cache(tags_pos_palavras, word_id, w, wtg):
     p_tag, p_lemma, p_morph = "", "", ""
     try:
         word_id_palavras_key = "%s_%s" % (word_id, w)
@@ -467,16 +544,16 @@ def get_pos_palavras_cache(word_id, w, wtg):
 
 
 
-def get_pos_palavras_answer_cache(sent_text, wsidx, word_id, a):
+def get_pos_palavras_answer_cache(preceding_passage, word_id, a):
     p_tag, p_lemma, p_morph = "", "", ""
     try:
-        word_id_palavras_key = "%s_%s" % (word_id, a)
+        word_id_palavras_key = "%s_%s" % (word_id, clean_word(a))
         if word_id_palavras_key in cache_tags_pos_palavras_words:
             p_tag = cache_tags_pos_palavras_words[word_id_palavras_key]["pos"]
             p_lemma = cache_tags_pos_palavras_words[word_id_palavras_key]["lemma"]
             p_morph = cache_tags_pos_palavras_words[word_id_palavras_key]["morph"]
         else:
-            pos_answer = get_pos_palavras_answer(sent_text, wsidx, a)
+            pos_answer = get_pos_palavras_answer(preceding_passage, a)
             p_tag = pos_answer["pos"]
             p_lemma = pos_answer["lemma"]
             p_morph = pos_answer["morph"]
@@ -493,54 +570,150 @@ def get_pos_palavras_answer_cache(sent_text, wsidx, word_id, a):
     return p_tag, p_lemma, p_morph
 
 
+#BEGIN BERT
+import torch
+from transformers import BertTokenizer, BertModel, BertForMaskedLM
 
-if __name__ == '__main__':
+# OPTIONAL: if you want to have more information on what's happening, activate the logger as follows
+import logging
+logging.basicConfig(level=logging.INFO)
 
-    print('--- Inicia processamento...')
-    ini = time.time()
+def load_bert_model():
+    # Load pre-trained model tokenizer (vocabulary)
+    tokenizer = BertTokenizer.from_pretrained('neuralmind/bert-large-portuguese-cased')
 
-    print('--- Carrega o dataset principal...')
-    df = load_main_dataset()
-    print("Tempo: ", time.time() - ini)
+    # Load pre-trained model (weights)
+    model = BertForMaskedLM.from_pretrained('neuralmind/bert-large-portuguese-cased')
+    model.eval()
 
-    print('--- anonimização participantes...')
-    participants = anonymize_participants()
-    print("Tempo: ", time.time() - ini)
+    return tokenizer, model
 
-    print('--- Carregando embeddings...')
-    load_embeddings()
-    print("Tempo: ", time.time() - ini)
 
-    print('--- Carregando answears annotation...')
-    answers_annotation = load_answers_annotations()
-    print("Tempo: ", time.time() - ini)
+def calc_score_task1(text, target_word, tokenizer, model, debug=False):
+    tokenized_text = tokenizer.tokenize(text)
+    indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
 
-    f = open("out/%s" % output_file, "w")
-    write_output_header()
+    # get indexs
+    target_index = tokenizer.convert_tokens_to_ids([target_word])[0]
+    masked_index = tokenized_text.index('[MASK]')
 
-    text_id_refs, text_id_genres, paragraphs = get_text_ids_pars_and_genres()
+    # Create the segments tensors.
+    segments_ids = [0] * len(tokenized_text)
 
-    print('--- calcula tamanhos das sentenças...')
-    sentence_lengths, sentences = get_sentence_lengths()
-    print("Tempo: ", time.time() - ini)
+    # Convert inputs to PyTorch tensors
+    tokens_tensor = torch.tensor([indexed_tokens])
+    segments_tensors = torch.tensor([segments_ids])
+
+    # get words again
+    expected_token = tokenizer.convert_ids_to_tokens([target_index])[0]
+
+    # Predict all tokens
+    with torch.no_grad():
+        predictions = model(tokens_tensor, segments_tensors)
+
+    # normalise between 0 and 1
+    # predictions_candidates = torch.sigmoid(predictions[0][0][masked_index])
+    predictions_candidates = predictions[0][0][masked_index]
+
+    predicted_index = torch.argmax(predictions_candidates).item()
+
+    predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])[0]
+
+    # if word dont exist return 0
+    if expected_token == '[UNK]':
+        return None
+
+    predictions_candidates = predictions_candidates.cpu().numpy()
+    target_bert_confiance = predictions_candidates[target_index]
+    predicted_bert_confience = predictions_candidates[predicted_index]
+
+    #score = 1 - (target_bert_confiance - predicted_bert_confience if target_bert_confiance > predicted_bert_confience else predicted_bert_confience - target_bert_confiance)
+    score = target_bert_confiance - predicted_bert_confience if target_bert_confiance > predicted_bert_confience else predicted_bert_confience - target_bert_confiance
+    if debug:
+        print("predicted token ---> ", predicted_token, predicted_bert_confience)
+        print("expected token  ---> ", expected_token, target_bert_confiance)
+        print("Score:", score)
+
+    return score
+
+
+def calc_score_task2(text, target_word, predicted_word, tokenizer, model, debug=False):
+
+  tokenized_text = tokenizer.tokenize(text)
+  indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+
+  #get indexs
+  target_index = tokenizer.convert_tokens_to_ids([target_word])[0]
+  predicted_index = tokenizer.convert_tokens_to_ids([predicted_word])[0]
+  masked_index = tokenized_text.index('[MASK]')
+
+  # Create the segments tensors.
+  segments_ids = [0] * len(tokenized_text)
+
+  # Convert inputs to PyTorch tensors
+  tokens_tensor = torch.tensor([indexed_tokens])
+  segments_tensors = torch.tensor([segments_ids])
+
+
+  # get words again
+  expected_token = tokenizer.convert_ids_to_tokens([target_index])[0]
+  predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])[0]
+
+
+  # Predict all tokens
+  with torch.no_grad():
+      predictions = model(tokens_tensor, segments_tensors)
+
+  # normalise between 0 and 1
+  # predictions_candidates = torch.sigmoid(predictions[0][0][masked_index]).cpu().numpy()
+  predictions_candidates = predictions[0][0][masked_index].cpu().numpy()
+
+  # get words again
+  expected_token = tokenizer.convert_ids_to_tokens([target_index])[0]
+  predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])[0]
+
+  # if word dont exist return 0
+  if predicted_token == '[UNK]' or expected_token == '[UNK]':
+    return None
+
+  target_bert_confiance = predictions_candidates[target_index]
+  predicted_bert_confience = predictions_candidates[predicted_index]
+
+
+  #score = 1 - (target_bert_confiance-predicted_bert_confience if  target_bert_confiance > predicted_bert_confience else predicted_bert_confience-target_bert_confiance)
+  score = target_bert_confiance - predicted_bert_confience if target_bert_confiance > predicted_bert_confience else predicted_bert_confience - target_bert_confiance
+
+  if debug:
+    print("predicted token ---> ", predicted_token, predicted_bert_confience)
+    print("expected token  ---> ",expected_token , target_bert_confiance)
+    print("Score:", score)
+
+  return score
+
+#END BERT
+
+
+
+def process(thread_name, df):
 
     total_lines_count = 1
     wsidx, sent_length, word_place_in_sent = 0, 0, 0
     last_sent, last_text = 0, 0
     pos_words_ctl, cache_sim, cache_sim_ctx = {}, {}, {}
-    preceding_passage, last_word_id = "", ""
+    preceding_passage, last_word_id, last_word = "", "", ""
     wtg = 0
     sentence, tags_pos_palavras, cache_tags_pos_palavras_sents = {}, {}, {}
     text_sent, first_word = "", ""
+    first_word_of_a_text = False
 
-    print(sentences)
-
-    print('--- Inicia loop das palavras...')
+    f = open("out/%s_%s" % (thread_name, output_file), "w")
+    write_output_header(f)
 
     total_lines = df['Palavra'].count()
 
     for i, w in enumerate(df['Palavra']):
         cloze_par_id = df['Parágrafo'][i]
+        w_raw = df['Palavra Crua'][i]
         text_id = text_id_refs[cloze_par_id]
         text_par = paragraphs[cloze_par_id - 1]  # texto do parágrafo
         widx = df['Índice Palavra'][i]
@@ -554,6 +727,8 @@ if __name__ == '__main__':
         sent_str_id = '%s_%s' % (cloze_par_id, sent_idx)
 
         if word_id != last_word_id:
+            first_word_of_a_text = False
+            preceding_passage = '%s %s' % (preceding_passage, last_word)
             if sent_idx == last_sent and text_id == last_text:
                 wsidx += 1
                 word_place_in_sent = get_word_place_in_sent(wsidx, sent_length)
@@ -564,6 +739,7 @@ if __name__ == '__main__':
                 sentence = sentences[sent_str_id]
 
         if text_id != last_text:
+            first_word_of_a_text = True
             print(text_par)
             first_word = text_par.split(' ')[0]
             preceding_passage = first_word
@@ -594,8 +770,8 @@ if __name__ == '__main__':
         time_dig = df['Tempo Digitação(ms)'][i]
         total_time = time_start + time_dig
 
-        w_raw = w
         a = df['Resposta'][i]
+        a_raw = a
         w = clean_word(w)
         a = clean_word(a)
 
@@ -603,22 +779,19 @@ if __name__ == '__main__':
             wtg = get_pos_word_ctl(pos_words_ctl, w)
 
         tag = "ERR"
-        tag, w_lemma, w_morph = get_pos_palavras_cache(word_id, w, wtg)
+        tag, w_lemma, w_morph = get_pos_palavras_cache(tags_pos_palavras, word_id, w, wtg)
 
         tag_desc = tag_map_palavras[tag]
         content_func = content_or_function_word(tag)
 
-        print(round((time.time() - ini)/60, 2), total_lines_count, "/", total_lines,
+        print(thread_name, round((time.time() - ini)/60, 2), total_lines_count, "/", total_lines,
               ">", text_id, sent_idx, widx, word_id, w, tag, w_morph, a)
 
 
         last_sent = sent_idx
         last_text = text_id
         last_word_id = word_id
-
-        ortho_match = 0
-        if w == a:
-            ortho_match = 1
+        last_word = w
 
         # PoS
         a_lemma, a_tag, a_morph = '', '', ''
@@ -629,7 +802,11 @@ if __name__ == '__main__':
             a_lemma, a_tag, a_morph = a, a_tag, a_morph
 
         if a_tag == '':
-            a_tag, a_lemma, a_morph = get_pos_palavras_answer_cache(text_sent, wsidx, word_id, a)
+            a_tag, a_lemma, a_morph = get_pos_palavras_answer_cache(preceding_passage, word_id, a)
+
+        ortho_match = 0
+        if w == a.lower():
+            ortho_match = 1
 
         pos_match = 0
         if tag == a_tag:
@@ -641,30 +818,41 @@ if __name__ == '__main__':
 
 
         # contextual_fit / LSA_Context_Score
-        preceding_passage = '%s %s' % (preceding_passage, w)
         if word_id in cache_sim_ctx:
-            lsa_sim_ctx, ft_sim_ctx, w2v_sim_ctx \
-                = cache_sim_ctx[word_id][0], cache_sim_ctx[word_id][1], cache_sim_ctx[word_id][2]
+            sim_ctx_bert, sim_ctx_ft = cache_sim_ctx[word_id][0], cache_sim_ctx[word_id][1]
         else:
-            lsa_sim_ctx, ft_sim_ctx, w2v_sim_ctx = get_similarity(w, preceding_passage)
-            cache_sim_ctx[word_id] = [lsa_sim_ctx, ft_sim_ctx, w2v_sim_ctx]
+            sim_ctx_bert, sim_ctx_ft = get_similarity(w, preceding_passage)
+            cache_sim_ctx[word_id] = [sim_ctx_bert, sim_ctx_ft]
 
         # semantic_relatedness / LSA_Response_Match_Score
-        cache_sim_key = "%s_%s" % (w, a)
+        cache_sim_key = "%s_%s" % (word_id, a)
         if cache_sim_key in cache_sim:
-            lsa_sim, ft_sim, w2v_sim \
-                = cache_sim[cache_sim_key][0], cache_sim[cache_sim_key][1], cache_sim[cache_sim_key][2]
+            sim_resp_match_bert, sim_resp_ctx_bert = cache_sim[cache_sim_key][0], cache_sim[cache_sim_key][1]
+            sim_resp_match_ft, sim_resp_ctx_ft = cache_sim[cache_sim_key][2], cache_sim[cache_sim_key][3]
         else:
-            lsa_sim, ft_sim, w2v_sim = get_similarity(w, a)
-            cache_sim[cache_sim_key] = [lsa_sim, ft_sim, w2v_sim]
+            sim_resp_ctx_bert, sim_resp_ctx_ft = get_similarity(a, preceding_passage)
+            sim_resp_match_bert, sim_resp_match_ft = get_similarity_match(w, a, preceding_passage)
+            cache_sim[cache_sim_key] = [sim_resp_match_bert, sim_resp_ctx_bert, sim_resp_match_ft, sim_resp_ctx_ft]
 
+        freq_cb = get_freq_cb(df_freq_bra, w)
         freq_brwac = get_freq_brwac(df_freq_brwac, w, tag)
 
+        if first_word_of_a_text and widx > 1:
+            write_output_line(f, part, "UID_%s_1" % text_id, text_id, widx-1, sent_idx, wsidx-1, word_place_in_sent,
+                              sent_length, first_word,
+                              clean_word(first_word), '', '', 0, '', '', '', '', 0,
+                              '', '', 0, 0, 0, genre,
+                              0, 0, 0,
+                              0, 0, 0,
+                              0, 0, 0,
+                              '', '')
 
-        write_output_line(part, word_id, text_id, widx, sent_idx, wsidx, word_place_in_sent, sent_length, w_raw,
-                          w, a, ortho_match, tag, content_func, tag_desc, a_tag, pos_match,
-                          w_morph, a_morph, morph_match, freq_brwac, genre, lsa_sim_ctx,
-                          lsa_sim, ft_sim_ctx, ft_sim, w2v_sim_ctx, w2v_sim, time_start, time_dig, total_time,
+        write_output_line(f, part, word_id, text_id, widx, sent_idx, wsidx, word_place_in_sent, sent_length, w_raw,
+                          w, a_raw, a, ortho_match, tag, content_func, tag_desc, a_tag, pos_match,
+                          w_morph, a_morph, morph_match, freq_brwac, freq_cb, genre,
+                          sim_ctx_bert, sim_resp_match_bert, sim_resp_ctx_bert,
+                          sim_ctx_ft, sim_resp_match_ft, sim_resp_ctx_ft,
+                          time_start, time_dig, total_time,
                           w_lemma, a_lemma)
 
         total_lines_count += 1
@@ -674,3 +862,109 @@ if __name__ == '__main__':
     print("Tempo Exec: ", (time.time() - ini)/60)
 
     f.close()
+
+
+
+if __name__ == '__main__':
+
+    print('--- Inicia processamento...')
+    ini = time.time()
+
+    print('--- Carrega o dataset principal...')
+    main_df = load_main_dataset()
+    print("Tempo: ", time.time() - ini)
+
+    print('--- anonimização participantes...')
+    participants = anonymize_participants(main_df)
+    print("Tempo: ", time.time() - ini)
+
+    print('--- Carregando embeddings...')
+    load_embeddings()
+    print("Tempo: ", time.time() - ini)
+
+    print('--- Carregando answears annotation...')
+    answers_annotation = load_answers_annotations()
+    print("Tempo: ", time.time() - ini)
+
+    text_id_refs, text_id_genres, paragraphs = get_text_ids_pars_and_genres()
+
+    print('--- calcula tamanhos das sentenças...')
+    sentence_lengths, sentences = get_sentence_lengths(main_df)
+    print("Tempo: ", time.time() - ini)
+
+    print('--- carrega bert...')
+    tokenizer, model = load_bert_model()
+    print("Tempo: ", time.time() - ini)
+
+    print(sentences)
+
+    print('--- Inicia loop das palavras...')
+
+    #dividir
+    pars_to_process_1 = list(range(1,11))   # 01 02 03 04 05 06 07 08 09 10
+    pars_to_process_2 = list(range(11,21))  # 11 12 13 14 15 16 17 18 19 20
+    pars_to_process_3 = list(range(21,31))  # 21 22 23 24 25 26 27 28 29 30
+    pars_to_process_4 = list(range(31,41))  # 31 32 33 34 35 36 37 38 39 40
+    pars_to_process_5 = list(range(41,51))  # 41 42 43 44 45 46 47 48 49 50
+    df1 = main_df[main_df['Parágrafo'].isin(pars_to_process_1)].copy()
+    df2 = main_df[main_df['Parágrafo'].isin(pars_to_process_2)].copy()
+    df3 = main_df[main_df['Parágrafo'].isin(pars_to_process_3)].copy()
+    df4 = main_df[main_df['Parágrafo'].isin(pars_to_process_4)].copy()
+    df5 = main_df[main_df['Parágrafo'].isin(pars_to_process_5)].copy()
+
+    df1 = df1.reset_index()
+    df2 = df2.reset_index()
+    df3 = df3.reset_index()
+    df4 = df4.reset_index()
+    df5 = df5.reset_index()
+
+    # process("t1", df1)
+    t1 = threading.Thread(target=process, args=('t1', df1))
+    t2 = threading.Thread(target=process, args=('t2', df2))
+    t3 = threading.Thread(target=process, args=('t3', df3))
+    t4 = threading.Thread(target=process, args=('t4', df4))
+    t5 = threading.Thread(target=process, args=('t5', df5))
+
+    t1.start()
+    t2.start()
+    t3.start()
+    t4.start()
+    t5.start()
+
+    t1.join()
+    t2.join()
+    t3.join()
+    t4.join()
+    t5.join()
+
+    out1 = pd.read_csv("out/%s_%s" % ('t1', output_file), sep='\t', quoting=3)
+    out2 = pd.read_csv("out/%s_%s" % ('t2', output_file), sep='\t', quoting=3)
+    out3 = pd.read_csv("out/%s_%s" % ('t3', output_file), sep='\t', quoting=3)
+    out4 = pd.read_csv("out/%s_%s" % ('t4', output_file), sep='\t', quoting=3)
+    out5 = pd.read_csv("out/%s_%s" % ('t5', output_file), sep='\t', quoting=3)
+
+    out = out1.append(out2, ignore_index=True)
+    out = out.append(out3, ignore_index=True)
+    out = out.append(out4, ignore_index=True)
+    out = out.append(out5, ignore_index=True)
+
+    out['Semantic_Word_Context_Score'] = round(1 - (
+            out['Semantic_Word_Context_Score'] / out['Semantic_Word_Context_Score'].max()), 3)
+    out['Semantic_Response_Match_Score'] = round(1 - (
+            out['Semantic_Response_Match_Score'] / out['Semantic_Response_Match_Score'].max()), 3)
+    out['Semantic_Response_Context_Score'] = round(1 - (
+            out['Semantic_Response_Context_Score'] / out['Semantic_Response_Context_Score'].max()), 3)
+
+    out.loc[out['Semantic_Word_Context_Score'] > 1, "Semantic_Word_Context_Score"] \
+        = round(out['Semantic_Word_Context_Score_ft'], 3)
+    out.loc[out['Semantic_Response_Match_Score'] > 1, "Semantic_Response_Match_Score"] \
+        = round(out['Semantic_Response_Match_Score_ft'], 3)
+    out.loc[out['Semantic_Response_Context_Score'] > 1, "Semantic_Response_Context_Score"] \
+        = round(out['Semantic_Response_Context_Score_ft'], 3)
+
+    out = out.drop('Semantic_Word_Context_Score_ft', axis='columns')
+    out = out.drop('Semantic_Response_Match_Score_ft', axis='columns')
+    out = out.drop('Semantic_Response_Context_Score_ft', axis='columns')
+
+    out = out.sort_values(['Text_ID', 'Participant', 'Word_Number'])
+    out.to_csv("out/%s" % output_file, sep='\t', quoting=3, index=False)
