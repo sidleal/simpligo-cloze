@@ -35,6 +35,7 @@ type Word struct {
 	ParID    int    // Parágrafo
 	SentID   int    // Sentença
 	WordID   int    // Índice Palavra
+	RawWord  string // Palavra Crua
 	Word     string // Palavra
 	Resp     string // Resposta
 	TBegin   int    // Tempo Início(ms)
@@ -129,17 +130,17 @@ func readFileLines(path string) []string {
 func main() {
 
 	rawFiles := []string{
-		"cloze_baJwn24BmRI7xu8F5xxd_data23.csv", //puc
-		"cloze_bqJxn24BmRI7xu8Fqhz6_data23.csv", //usp
-		"cloze_bKJwn24BmRI7xu8FSBzU_data23.csv", //ufc
-		"cloze_UgXZ-28BaYrNtDuxSkMf_data23.csv", //utfpr
-		"cloze_ogW4nXABaYrNtDuxrk04_data23.csv", //ufabc
-		"cloze_YwXxiHABaYrNtDux7Uh8_data23.csv", //uerj
+		"cloze_baJwn24BmRI7xu8F5xxd_data25.csv", //puc
+		"cloze_bqJxn24BmRI7xu8Fqhz6_data25.csv", //usp
+		"cloze_bKJwn24BmRI7xu8FSBzU_data25.csv", //ufc
+		"cloze_UgXZ-28BaYrNtDuxSkMf_data25.csv", //utfpr
+		"cloze_ogW4nXABaYrNtDuxrk04_data25.csv", //ufabc
+		"cloze_YwXxiHABaYrNtDux7Uh8_data25.csv", //uerj
 	}
 
-	path := "/home/sidleal/sid/usp/cloze_exps2/data/"
+	path := "/home/sidleal/sid/usp/cloze_exps3/data/"
 
-	exportDate := "2020_10_25"
+	exportDate := "2020_11_26"
 	outFiles := []string{
 		"cloze_puc_" + exportDate + ".csv",
 		"cloze_usp_" + exportDate + ".csv",
@@ -180,13 +181,7 @@ func main() {
 				continue
 			}
 
-			// line = strings.ReplaceAll(line, "Atualmente, estou", "Atualmente estou")
-			// line = strings.ReplaceAll(line, ", ", ",")
-			// line = strings.ReplaceAll(line, " ,", ",")
-
-			line = strings.ReplaceAll(line, "usp,br", "usp.br")
-
-			cols := strings.Split(line, ",")
+			cols := strings.Split(line, "\t")
 			if i == 0 {
 				// log.Println(line)
 
@@ -227,13 +222,14 @@ func main() {
 			word.ParID, _ = strconv.Atoi(cols[18])
 			word.SentID, _ = strconv.Atoi(cols[19])
 			word.WordID, _ = strconv.Atoi(cols[20])
-			word.Word = cols[21]
-			word.Resp = cols[22]
-			word.TBegin, _ = strconv.Atoi(cols[23])
-			word.TDig, _ = strconv.Atoi(cols[24])
-			word.TTot, _ = strconv.Atoi(cols[25])
-			word.TPar, _ = strconv.Atoi(cols[26])
-			word.TTest, _ = strconv.Atoi(cols[27])
+			word.RawWord = cols[21]
+			word.Word = cols[22]
+			word.Resp = cols[23]
+			word.TBegin, _ = strconv.Atoi(cols[24])
+			word.TDig, _ = strconv.Atoi(cols[25])
+			word.TTot, _ = strconv.Atoi(cols[26])
+			word.TPar, _ = strconv.Atoi(cols[27])
+			word.TTest, _ = strconv.Atoi(cols[28])
 
 			total_lines_original++
 
@@ -257,8 +253,11 @@ func main() {
 			}
 
 			discardParagraphs := map[string][]int{
-				"12.294.189-1": []int{2}, // falha alinhamento (erro browser)
-				"17976454":     []int{2}, // falha alinhamento (erro browser)
+				"12.294.189-1":  []int{2},  // falha alinhamento (erro browser)
+				"17976454":      []int{2},  // falha alinhamento (erro browser)
+				"V528596-D":     []int{32}, // falha alinhamento (erro browser)
+				"2000012026485": []int{28}, // falha alinhamento (erro browser)
+
 			}
 			if _, found := discardParagraphs[word.Reg]; found {
 				itemToDiscard := false
@@ -284,6 +283,7 @@ func main() {
 				"feminino":        "F",
 				"femenino":        "F",
 				"feminio":         "F",
+				"fem":             "F",
 				"femino":          "F",
 				"f":               "F",
 				"ferminino":       "F",
@@ -459,7 +459,7 @@ func main() {
 				continue
 			}
 
-			cols := strings.Split(line, ",")
+			cols := strings.Split(line, "\t")
 			if i == 0 {
 				header = line
 				// for j, col := range cols {
@@ -494,13 +494,14 @@ func main() {
 			word.ParID, _ = strconv.Atoi(cols[18])
 			word.SentID, _ = strconv.Atoi(cols[19])
 			word.WordID, _ = strconv.Atoi(cols[20])
-			word.Word = cols[21]
-			word.Resp = cols[22]
-			word.TBegin, _ = strconv.Atoi(cols[23])
-			word.TDig, _ = strconv.Atoi(cols[24])
-			word.TTot, _ = strconv.Atoi(cols[25])
-			word.TPar, _ = strconv.Atoi(cols[26])
-			word.TTest, _ = strconv.Atoi(cols[27])
+			word.RawWord = cols[21]
+			word.Word = cols[22]
+			word.Resp = cols[23]
+			word.TBegin, _ = strconv.Atoi(cols[24])
+			word.TDig, _ = strconv.Atoi(cols[25])
+			word.TTot, _ = strconv.Atoi(cols[26])
+			word.TPar, _ = strconv.Atoi(cols[27])
+			word.TTest, _ = strconv.Atoi(cols[28])
 
 			wordList = append(wordList, word)
 
@@ -543,9 +544,9 @@ func main() {
 }
 
 func formatLine(w Word, cont int) string {
-	return fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n",
+	return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 		w.Code, w.Name, w.QtdGenre, w.Pars, w.Part,
 		w.Email, w.Age, w.Gender, w.Reg, w.Sem, w.Org, w.Course, w.Language, w.Phone, w.CPF, w.ParsRead, w.DTBegin,
-		w.HRBegin, w.ParID, w.SentID, cont, w.Word,
+		w.HRBegin, w.ParID, w.SentID, cont, w.RawWord, w.Word,
 		w.Resp, w.TBegin, w.TDig, w.TTot, w.TPar, w.TTest)
 }
