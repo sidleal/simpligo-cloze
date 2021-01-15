@@ -5,7 +5,7 @@ import itertools
 
 df_pars_eye = pd.read_csv('data/50pars_eye.txt', sep='\t', escapechar='\\')
 
-df = pd.read_csv('out/cloze_predict_35_FULL.tsv', sep='\t', quoting=3)
+df = pd.read_csv('out/cloze_predict_38_FULL.tsv', sep='\t', quoting=3)
 df = df.fillna('')
 df = df.sort_values(by=['Word_Unique_ID'])
 
@@ -132,7 +132,7 @@ for i, word_id in enumerate(df['Word_Unique_ID']):
 word_list.append(fill_word_item())
 
 
-f = open("out/cloze_predict35_consolidada.tsv", "w")
+f = open("out/cloze_predict38_consolidada.tsv", "w")
 
 header = 'Word_Unique_ID\tText_ID\tText\tGenre\t' \
          'Word_Number\tSentence_Number\tWord_In_Sentence_Number\tWord_Place_In_Sent\t' \

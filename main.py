@@ -12,7 +12,7 @@ import xml.dom.minidom
 from scipy import spatial
 import gensim
 
-output_file = "cloze_predict_35_FULL.tsv"
+output_file = "cloze_predict_38_FULL.tsv"
 process_date = "2020_11_26"
 
 
@@ -56,7 +56,7 @@ def write_output_header(f):
              'Semantic_Word_Context_Score\tSemantic_Response_Match_Score\tSemantic_Response_Context_Score\t' \
              'Semantic_Word_Context_Score_ft\tSemantic_Response_Match_Score_ft\tSemantic_Response_Context_Score_ft\t' \
              'Time_to_Start\tTyping_Time\tTotal_time\t' \
-             'Word_Lemma_\tAnswer_Lemma\n'
+             'Word_Lemma_\tAnswer_Lemma\tQty_Paragraphs_Partic\n'
     print(header)
     f.write(header)
 
@@ -67,19 +67,19 @@ def write_output_line(f, part, word_id, text_id, widx, sent, wsidx, word_place_i
                       sim_ctx, sim_resp_match, sim_resp_ctx,
                       sim_ctx_ft, sim_resp_match_ft, sim_resp_ctx_ft,
                       time_start, time_dig, total_time,
-                      w_lemma, a_lemma):
+                      w_lemma, a_lemma, qty_read_paragraphs):
 
     norm_freq_brwac = 0
     log_freq_brwac = 0
     if freq_brwac > 0:
-        norm_freq_brwac = round(freq_brwac * 1000000 / brwac_size, 3)
-        log_freq_brwac = round(math.log(norm_freq_brwac)+3, 3)
+        norm_freq_brwac = round(freq_brwac * 1000000 / brwac_size, 5)
+        log_freq_brwac = round(math.log(norm_freq_brwac, 10)+3, 5)
 
     norm_freq_bra = 0
     log_freq_bra = 0
     if freq_cb > 0:
-        norm_freq_bra = round(freq_cb * 1000000 / bra_size, 3)
-        log_freq_bra = round(math.log(norm_freq_bra)+3, 3)
+        norm_freq_bra = round(freq_cb * 1000000 / bra_size, 5)
+        log_freq_bra = round(math.log(norm_freq_bra, 10)+3, 5)
 
     line = '%s\t%s\t%s\t%s\t%s\t%s\t' \
            '%s\t%s\t%s\t%s\t%s\t%s\t%s\t' \
@@ -90,7 +90,7 @@ def write_output_line(f, part, word_id, text_id, widx, sent, wsidx, word_place_i
            '%s\t%s\t%s\t' \
            '%s\t%s\t%s\t' \
            '%s\t%s\t%s\t' \
-           '%s\t%s\n' \
+           '%s\t%s\t%s\n' \
            % (part, word_id, text_id, widx, sent, wsidx,
               word_place_in_sent, sent_length, w_raw, w, len(w), a_raw, a,
               ortho_match,
@@ -100,7 +100,7 @@ def write_output_line(f, part, word_id, text_id, widx, sent, wsidx, word_place_i
               sim_ctx, sim_resp_match, sim_resp_ctx,
               sim_ctx_ft, sim_resp_match_ft, sim_resp_ctx_ft,
               time_start, time_dig, total_time,
-              w_lemma, a_lemma)
+              w_lemma, a_lemma, qty_read_paragraphs)
 
     f.write(line)
 
@@ -367,7 +367,7 @@ def anonymize_participants(df):
     participants = {}
 
     fp = open("out/participants_%s.tsv" % process_date, "w")
-    fp.write("ID\tParticipant\tEmail\tIdade\n")
+    fp.write("ID\tParticipant\tEmail\tIdade\tGênero\tRegistro\tSemestre\tOrganização\tCurso\tCPF\tFone\tData\n")
 
     part_count = 1
     for i, p in enumerate(df['Nome Participante']):
@@ -375,7 +375,17 @@ def anonymize_participants(df):
             participants[p] = part_count
             email = df['Email'][i]
             idade = df['Idade'][i]
-            fp.write("%s\t%s\t%s\t%s\n" % (part_count, p, email, idade))
+            genero = df['Gênero'][i]
+            registro = df['Registro'][i]
+            semestre = df["Semestre"][i]
+            org = df["Organização"][i]
+            curso = df["Curso"][i]
+            cpf = df["CPF"][i]
+            fone = df["Fone"][i]
+            data = df["Data Início"][i]
+
+            fp.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n"
+                     % (part_count, p, email, idade, genero, registro, semestre, org, curso, cpf, fone, data))
             part_count += 1
 
     fp.close()
@@ -431,7 +441,7 @@ def call_palavras(text):
         ret = requests.post(url, {"content": text, "options": "--dep-retokenize"}).text
 
         ret = ret.replace("\n", "").replace("\t", "").replace("</ß></ß>", "</ß>")
-        print(ret)
+        print("palavras-online:", ret)
         doc = xml.dom.minidom.parseString(ret)
         return doc
     except Exception as exc:
@@ -487,7 +497,7 @@ def get_pos_palavras(text):
                     dict_ret[word_tag]['morph'] = t.getAttribute("morph")
 
     except Exception as exc:
-        print("palavras-online", text, "-->", exc)
+        print("get_pos_palavras", text, "-->", exc)
 
     return dict_ret
 
@@ -537,7 +547,7 @@ def get_pos_palavras_cache(tags_pos_palavras, word_id, w, wtg):
             cache_tags_pos_palavras_words[word_id_palavras_key]["morph"] = p_morph
 
     except Exception as exc:
-        print("palavras-online", word_id, w, "-->", exc)
+        print("get_pos_palavras_cache", word_id, w, "-->", exc)
         p_tag = "ERR"
 
     return p_tag, p_lemma, p_morph
@@ -692,7 +702,9 @@ def calc_score_task2(text, target_word, predicted_word, tokenizer, model, debug=
 
 #END BERT
 
-
+part_data = pd.read_csv('data/cloze_status_2020_11_26.tsv', sep='\t')
+def get_read_paragraphs_qty(part):
+    return part_data.query("nome == '%s'" % part)['qtde'].values[0]
 
 def process(thread_name, df):
 
@@ -722,6 +734,7 @@ def process(thread_name, df):
 
         part_name = df['Nome Participante'][i]
         part = participants[part_name]
+        qty_read_paragraphs = get_read_paragraphs_qty(part_name)
 
         sent_idx = df['Sentença'][i]
         sent_str_id = '%s_%s' % (cloze_par_id, sent_idx)
@@ -838,22 +851,32 @@ def process(thread_name, df):
         freq_brwac = get_freq_brwac(df_freq_brwac, w, tag)
 
         if first_word_of_a_text and widx > 1:
+            first_word_clean = clean_word(first_word)
+            first_word_tag, first_word_lemma, first_word_morph = \
+                get_pos_palavras_cache(tags_pos_palavras, "UID_%s_1" % text_id, first_word_clean, '%s_1' % first_word_clean)
+            first_word_tag_desc = tag_map_palavras[first_word_tag]
+            first_word_content_func = content_or_function_word(first_word_tag)
+            first_word_freq_cb = get_freq_cb(df_freq_bra, first_word_clean)
+            first_word_freq_brwac = get_freq_brwac(df_freq_brwac, first_word_clean, first_word_tag)
+
             write_output_line(f, part, "UID_%s_1" % text_id, text_id, widx-1, sent_idx, wsidx-1, word_place_in_sent,
                               sent_length, first_word,
-                              clean_word(first_word), '', '', 0, '', '', '', '', 0,
-                              '', '', 0, 0, 0, genre,
+                              first_word_clean, '', '', 0, first_word_tag, first_word_content_func,
+                              first_word_tag_desc, '', 0,
+                              first_word_morph, '', 0, first_word_freq_brwac, first_word_freq_cb, genre,
                               0, 0, 0,
                               0, 0, 0,
                               0, 0, 0,
-                              '', '')
+                              first_word_lemma, '', qty_read_paragraphs)
 
-        write_output_line(f, part, word_id, text_id, widx, sent_idx, wsidx, word_place_in_sent, sent_length, w_raw,
+        write_output_line(f, part, word_id, text_id, widx, sent_idx, wsidx, word_place_in_sent, sent_length,
+                          w_raw,
                           w, a_raw, a, ortho_match, tag, content_func, tag_desc, a_tag, pos_match,
                           w_morph, a_morph, morph_match, freq_brwac, freq_cb, genre,
                           sim_ctx_bert, sim_resp_match_bert, sim_resp_ctx_bert,
                           sim_ctx_ft, sim_resp_match_ft, sim_resp_ctx_ft,
                           time_start, time_dig, total_time,
-                          w_lemma, a_lemma)
+                          w_lemma, a_lemma, qty_read_paragraphs)
 
         total_lines_count += 1
 
