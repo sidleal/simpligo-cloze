@@ -10,9 +10,9 @@ import (
 
 func main() {
 
-	path := "/home/sidleal/sid/usp/cloze_exps4/final/"
+	path := "/home/sidleal/sid/usp/cloze_exps4/final2/"
 
-	clozeFile := path + "/cloze_predict38_consolidada.tsv"
+	clozeFile := path + "/cloze_predict40_consolidada.tsv"
 	eyeFile := path + "/All_part_AGO20.tsv"
 
 	clozeMap := map[string]map[string]string{}
@@ -48,10 +48,12 @@ func main() {
 		28: "Freq_Brasileiro_fpm",
 		29: "Freq_brWaC_log",
 		30: "Freq_Brasileiro_log",
-		31: "Time_to_Start",
-		32: "Typing_Time",
-		33: "Total_time",
-		34: "Top_10_resp",
+		31: "Surprisal",
+		32: "Entropy_Reduction",
+		33: "Time_to_Start",
+		34: "Typing_Time",
+		35: "Total_time",
+		36: "Top_10_resp",
 	}
 
 	eyeItemMap := map[string]string{}
@@ -104,7 +106,7 @@ func main() {
 	}
 	defer f2.Close()
 
-	_, err = f2.WriteString("RECORDING_SESSION_LABEL\tWord_Unique_ID\tText_ID\tGenre\tWord_Number\tSentence_Number\tWord_In_Sentence_Number\tWord_Place_In_Sent\tWord\tWord_Cleaned\tWord_Length\tTotal_Response_Count\tUnique_Count\tOrthographicMatch\tIsModalResponse\tModalResponse\tModalResponseCount\tCertainty\tPoS\tWord_Content_Or_Function\tWord_PoS\tPOSMatch\tWord_Inflection\tInflectionMatch\tSemantic_Word_Context_Score\tSemantic_Response_Match_Score\tSemantic_Response_Context_Score\tFreq_brWaC_fpm\tFreq_Brasileiro_fpm\tFreq_brWaC_log\tFreq_Brasileiro_log\tTime_to_Start\tTyping_Time\tTotal_time\tIA_ID\tIA_LABEL\tTRIAL_INDEX\tIA_LEFT\tIA_RIGHT\tIA_TOP\tIA_BOTTOM\tIA_AREA\tIA_FIRST_FIXATION_DURATION\tIA_FIRST_FIXATION_INDEX\tIA_FIRST_FIXATION_VISITED_IA_COUNT\tIA_FIRST_FIXATION_X\tIA_FIRST_FIXATION_Y\tIA_FIRST_FIX_PROGRESSIVE\tIA_FIRST_FIXATION_RUN_INDEX\tIA_FIRST_FIXATION_TIME\tIA_FIRST_RUN_DWELL_TIME\tIA_FIRST_RUN_FIXATION_COUNT\tIA_FIRST_RUN_START_TIME\tIA_FIRST_RUN_END_TIME\tIA_FIRST_RUN_FIXATION_%\tIA_DWELL_TIME\tIA_FIXATION_COUNT\tIA_RUN_COUNT\tIA_SKIP\tIA_REGRESSION_IN\tIA_REGRESSION_IN_COUNT\tIA_REGRESSION_OUT\tIA_REGRESSION_OUT_COUNT\tIA_REGRESSION_OUT_FULL\tIA_REGRESSION_OUT_FULL_COUNT\tIA_REGRESSION_PATH_DURATION\tIA_FIRST_SACCADE_AMPLITUDE\tIA_FIRST_SACCADE_ANGLE\tIA_FIRST_SACCADE_START_TIME\tIA_FIRST_SACCADE_END_TIME\n")
+	_, err = f2.WriteString("RECORDING_SESSION_LABEL\tWord_Unique_ID\tText_ID\tGenre\tWord_Number\tSentence_Number\tWord_In_Sentence_Number\tWord_Place_In_Sent\tWord\tWord_Cleaned\tWord_Length\tTotal_Response_Count\tUnique_Count\tOrthographicMatch\tIsModalResponse\tModalResponse\tModalResponseCount\tCertainty\tPoS\tWord_Content_Or_Function\tWord_PoS\tPOSMatch\tWord_Inflection\tInflectionMatch\tSemantic_Word_Context_Score\tSemantic_Response_Match_Score\tSemantic_Response_Context_Score\tFreq_brWaC_fpm\tFreq_Brasileiro_fpm\tFreq_brWaC_log\tFreq_Brasileiro_log\tSurprisal\tEntropy_Reduction\tTime_to_Start\tTyping_Time\tTotal_time\tIA_ID\tIA_LABEL\tTRIAL_INDEX\tIA_LEFT\tIA_RIGHT\tIA_TOP\tIA_BOTTOM\tIA_AREA\tIA_FIRST_FIXATION_DURATION\tIA_FIRST_FIXATION_INDEX\tIA_FIRST_FIXATION_VISITED_IA_COUNT\tIA_FIRST_FIXATION_X\tIA_FIRST_FIXATION_Y\tIA_FIRST_FIX_PROGRESSIVE\tIA_FIRST_FIXATION_RUN_INDEX\tIA_FIRST_FIXATION_TIME\tIA_FIRST_RUN_DWELL_TIME\tIA_FIRST_RUN_FIXATION_COUNT\tIA_FIRST_RUN_START_TIME\tIA_FIRST_RUN_END_TIME\tIA_FIRST_RUN_FIXATION_%\tIA_DWELL_TIME\tIA_FIXATION_COUNT\tIA_RUN_COUNT\tIA_SKIP\tIA_REGRESSION_IN\tIA_REGRESSION_IN_COUNT\tIA_REGRESSION_OUT\tIA_REGRESSION_OUT_COUNT\tIA_REGRESSION_OUT_FULL\tIA_REGRESSION_OUT_FULL_COUNT\tIA_REGRESSION_PATH_DURATION\tIA_FIRST_SACCADE_AMPLITUDE\tIA_FIRST_SACCADE_ANGLE\tIA_FIRST_SACCADE_START_TIME\tIA_FIRST_SACCADE_END_TIME\n")
 	if err != nil {
 		log.Println("ERRO", err)
 	}
@@ -190,6 +192,8 @@ func main() {
 			str += clozeInfo["Freq_Brasileiro_fpm"] + "\t"
 			str += clozeInfo["Freq_brWaC_log"] + "\t"
 			str += clozeInfo["Freq_Brasileiro_log"] + "\t"
+			str += clozeInfo["Surprisal"] + "\t"
+			str += clozeInfo["Entropy_Reduction"] + "\t"
 			str += clozeInfo["Time_to_Start"] + "\t"
 			str += clozeInfo["Typing_Time"] + "\t"
 			str += clozeInfo["Total_time"] + "\t"

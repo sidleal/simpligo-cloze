@@ -10,7 +10,7 @@ df = df.fillna('')
 df = df.sort_values(by=['Word_Unique_ID'])
 
 total_words = 0
-last_word_id = ''
+last_word_id, last_text_id = '', ''
 word_list = []
 resp_count, orto_match_count, word_len = 0, 0, 0
 pos_match_count, inflection_match_count = 0, 0
@@ -18,8 +18,11 @@ text_id, genre, text, word, word_clean = '', '', '', '', ''
 word_num, sentence_num, word_in_sent, word_place = '', '', '', ''
 word_pos_tag, word_cont_or_func, word_pos_desc = '', '', ''
 resps, semantic_context_score, freq, times = {}, {}, {}, {}
+last_entropy = 0
 
 def fill_word_item():
+    global last_entropy, resp_count
+
     ordered_answers = {key: val for key, val in
                        sorted(resps.items(), key=lambda item: item[1], reverse=True)}
     top_10_answers = dict(itertools.islice(ordered_answers.items(), 10))
@@ -51,6 +54,29 @@ def fill_word_item():
     type_time = int(times['Typing_Time'] / resp_count)
     total_time = int(times['Total_time'] / resp_count)
 
+    #surprisal
+    orto_match_above_zero = orto_match
+    if orto_match_above_zero  <= 0:
+        orto_match_above_zero = 0.0115 # metade do menor valor: 0.23
+    surprisal = math.log(orto_match_above_zero, 10) * -1
+    surprisal = round(surprisal, 3)
+
+    #entropy reduction
+    cur_entropy = 0
+    for k, resp_qty in resps.items():
+        cur_entropy += (resp_qty/resp_count) * math.log2(resp_qty/resp_count) * -1
+
+    entropy_reduction = cur_entropy - last_entropy
+    # if entropy_reduction > 0:
+    #     entropy_reduction = 0
+    entropy_reduction = round(entropy_reduction, 3)
+
+    last_entropy = cur_entropy
+
+    if word_num == 1: #first word
+        sem_word_ctx, sem_resp_match, sem_resp_ctx, certainty = 0, 0, 0, 0
+        modal_resp_count, unique_count, resp_count, inflection_match = 0, 0, 0, 0
+        top_10_answers = {}
 
     word_item = [last_word_id, text_id, text, genre,
                  word_num, sentence_num, word_in_sent, word_place,
@@ -59,6 +85,7 @@ def fill_word_item():
                  word_pos_tag, word_cont_or_func, word_pos_desc, pos_match, word_inflection, inflection_match,
                  sem_word_ctx, sem_resp_match, sem_resp_ctx,
                  freq_brwac_fpm, freq_brasil_fpm, freq_brwac_log, freq_brasil_log,
+                 surprisal, entropy_reduction,
                  time_to_start, type_time, total_time,
                  top_10_answers]
 
@@ -68,6 +95,8 @@ def fill_word_item():
 
 
 for i, word_id in enumerate(df['Word_Unique_ID']):
+
+    text_id = df['Text_ID'].iloc[i]
 
     if last_word_id != word_id:
         # mudou palavra, consolida e joga pra lista
@@ -83,6 +112,9 @@ for i, word_id in enumerate(df['Word_Unique_ID']):
         semantic_context_score['Semantic_Response_Context_Score'] = 0
         times['Time_to_Start'], times['Typing_Time'], times['Total_time'] = 0, 0, 0
         delaf_tags, delaf_morphs = {}, {}
+
+        if last_text_id != text_id:
+            last_entropy = 0
 
     word = df['Word'].iloc[i]
     word_clean = df['Word_Cleaned'].iloc[i]
@@ -128,11 +160,12 @@ for i, word_id in enumerate(df['Word_Unique_ID']):
 
     resp_count += 1
     last_word_id = word_id
+    last_text_id = text_id
 
 word_list.append(fill_word_item())
 
 
-f = open("out/cloze_predict39_consolidada.tsv", "w")
+f = open("out/cloze_predict40_consolidada.tsv", "w")
 
 header = 'Word_Unique_ID\tText_ID\tText\tGenre\t' \
          'Word_Number\tSentence_Number\tWord_In_Sentence_Number\tWord_Place_In_Sent\t' \
@@ -141,6 +174,7 @@ header = 'Word_Unique_ID\tText_ID\tText\tGenre\t' \
          'PoS\tWord_Content_Or_Function\tWord_PoS\tPOSMatch\tWord_Inflection\tInflectionMatch\t' \
          'Semantic_Word_Context_Score\tSemantic_Response_Match_Score\tSemantic_Response_Context_Score\t' \
          'Freq_brWaC_fpm\tFreq_Brasileiro_fpm\tFreq_brWaC_log\tFreq_Brasileiro_log\t' \
+         'Surprisal\tEntropy_Reduction\t' \
          'Time_to_Start\tTyping_Time\tTotal_time\tTop_10_resp\n'
 print(header)
 f.write(header)

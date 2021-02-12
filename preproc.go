@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 type Word struct {
@@ -103,6 +105,36 @@ func readFile(path string) string {
 
 }
 
+func readFileISO(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		log.Println(err)
+	}
+
+	r := charmap.ISO8859_1.NewDecoder().Reader(f)
+
+	ret := ""
+
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := r.Read(buf)
+		// n, err := f.Read(buf)
+		if n > 0 {
+			ret += string(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Println(err)
+			break
+		}
+	}
+
+	return ret
+
+}
+
 func readFileLines(path string) []string {
 	ret := []string{}
 
@@ -127,7 +159,7 @@ func readFileLines(path string) []string {
 
 // ------------------------------------
 
-func main() {
+func main() { //_preproc() {
 
 	rawFiles := []string{
 		"cloze_baJwn24BmRI7xu8F5xxd_data25.csv", //puc
@@ -283,8 +315,8 @@ func main() {
 				"feminino":        "F",
 				"femenino":        "F",
 				"feminio":         "F",
-				"fem":             "F",
 				"femino":          "F",
+				"fem":             "F",
 				"f":               "F",
 				"ferminino":       "F",
 				"masculino":       "M",
