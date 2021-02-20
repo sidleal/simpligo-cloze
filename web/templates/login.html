@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Simpligo.pln</title>
+  <base href="/">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="static/img/favicon.ico">
+  <link media="all" type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/6.3.0/css/foundation-flex.min.css">
+  <link href="https://fonts.googleapis.com/css?family=Raleway:300,500" rel="stylesheet">
+  <link href="/static/css/simpligo-pln.css" rel="stylesheet">
+  <link href="/static/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://apis.google.com/js/platform.js" async defer></script>
+  <meta name="google-signin-client_id" content="934899219147-4vdued8h0s79ke2epi6e7u19cb8ep3da.apps.googleusercontent.com">
+</head>
+<body>
+  <script>
+    window.fbAsyncInit = function() {
+      FB.init({
+        appId      : '346173842588743',
+        cookie     : true,
+        xfbml      : true,
+        version    : 'v3.1'
+      });
+        
+      FB.AppEvents.logPageView();
+
+      FB.getLoginStatus(function(response) {
+        // console.log(response.status);
+
+        if (response.status == 'connected') {
+          var jwtKey = sessionStorage.getItem('simpligo.pln.jwt.key');
+          if (jwtKey != null && jwtKey != "null" && jwtKey != "logout" && ![[ .SessionExpired ]]) {
+            loadMenu('[[ .LastPath]]');
+          } else {
+            // console.log(response.authResponse.accessToken);
+            if (jwtKey != "logout") {
+              FB.api('/me?fields=name,email', function(resp) {
+                login("face", resp.name, resp.email, response.authResponse.accessToken)
+                // console.log(JSON.stringify(response));
+                // console.log(response.email);
+              });
+            }
+          }
+         }
+      });
+
+
+    };
+  
+    (function(d, s, id){
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) {return;}
+        js = d.createElement(s); js.id = id;
+        js.src = "https://connect.facebook.net/en_US/sdk.js";
+        fjs.parentNode.insertBefore(js, fjs);
+      }(document, 'script', 'facebook-jssdk'));
+
+      function loginWithFacebook() {
+        FB.login(function(response) {
+          if (response.status == 'connected') {
+            FB.api('/me?fields=name,email', function(resp) {
+              login("face", resp.name, resp.email, response.authResponse.accessToken)
+              // console.log(JSON.stringify(response));
+              // console.log(response.email);
+            });
+          }
+          // console.log(JSON.stringify(response));
+        }, {scope: 'public_profile,email'});
+      }
+
+
+      function onGoogleSignIn(googleUser) {
+        var profile = googleUser.getBasicProfile();
+        if (profile.getEmail() != '') {
+          var jwtKey = sessionStorage.getItem('simpligo.pln.jwt.key');
+          if (jwtKey != null && jwtKey != "null" && jwtKey != "logout" && ![[ .SessionExpired ]]) {
+            loadMenu('[[ .LastPath]]');
+          } else {
+            if (jwtKey != "logout") {
+                login("google", profile.getName(), profile.getEmail(), googleUser.getAuthResponse().id_token);
+            }
+          }
+        }
+        // console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
+        // console.log('Name: ' + profile.getName());
+        // console.log('Image URL: ' + profile.getImageUrl());
+        // console.log('Email: ' + profile.getEmail()); // This is null if the 'email' scope is not present.
+        // var id_token = googleUser.getAuthResponse().id_token;
+        // console.log("ID Token: " + id_token);
+
+      }
+
+  </script>
+
+  <a href="https://github.com/sidleal/simpligo-cloze"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/652c5b9acfaddf3a9c326fa6bde407b87f7be0f4/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
+  
+  
+<div id="header">
+    <div id="logo">Simpligo.pln</div>
+    <div id="slogan">Plataforma de Apoio à Simplificação na Língua Portuguesa</div>
+  </div>
+  <div id="subheader"></div>
+  
+  <div class="columns log-in-form">
+    <h4 class="text-center">Obrigado pela visita! Antes de começarmos preciso me lembrar de você:</h4>
+
+    <div id="socialLogin">
+  
+        <button class="loginBtn loginBtn--facebook" onclick="loginWithFacebook();">
+          Entre usando o Facebook
+        </button>
+
+        <div class="g-signin2" data-onsuccess="onGoogleSignIn" data-width="240" data-height="34" data-longtitle="true" data-theme="dark" onclick="sessionStorage.setItem('simpligo.pln.jwt.key', null);"></div>
+        
+    </div>
+
+    <p style="margin-top:30px;" class="text-center">Se não quiser acessar usando sua conta Google ou Facebook, crie uma solicitação no <a href="https://github.com/sidleal/simpligo-pln/issues" target="_blank">github</a> e <br>lhe forneceremos um usuário/senha diretamente no seu email.</p>
+
+    <div id="rawLogin">
+
+    <label>Email
+      <input type="text" placeholder="alguem@exemplo.com" id="email" />
+    </label>
+    <label>Senha
+      <input type="password" placeholder="Senha" id="password"/>
+    </label>
+    <button style="margin-top:30px;" onclick="loginRaw()" id="btnLogin">Entrar</button>
+
+    </div>
+    
+    <p style="margin-top:30px;" class="text-center"><a href="/privacidade">Termos de uso</a></p>
+  
+
+  </div>
+  
+  
+  <script src="/static/js/jquery.min.js"></script>
+  <script src="/static/js/jquery-ui.min.js"></script>
+  <script src="/static/js/simpligo-pln.js?[[ .StaticHash ]]"></script>
+  <script>
+
+    var jwtKey = sessionStorage.getItem('simpligo.pln.jwt.key');
+    if (jwtKey != null && jwtKey != "null" && jwtKey != "logout" && ![[ .SessionExpired ]]) {
+      loadMenu('[[ .LastPath]]');
+    } 
+
+    $('#password').keypress(function (e) {
+      if (e.which == 13) {
+        loginRaw();
+      }
+    });
+
+    function loginRaw() {
+      login("raw", "", $('#email').val(), $('#password').val())
+    }
+
+    function login(source, username, user, hash) {
+      $.post( "/login", {src: source, name: username, email: user, pwd: hash})
+      .done(function(data) {
+        sessionStorage.setItem('simpligo.pln.jwt.key', data);
+        loadMenu('[[ .LastPath]]');
+      })
+      .fail(function() {
+        alert( "Humm... não consigo me lembrar de você, se tiver certeza que digitou tudo certo, avise a gente." );
+      });
+
+    }
+
+
+  </script>
+
+</body>
+</html>

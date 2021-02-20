@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Simpligo.pln</title>
+  <base href="/">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="static/img/favicon.ico">
+  <link media="all" type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/6.3.0/css/foundation-flex.min.css">
+  <link href="https://fonts.googleapis.com/css?family=Raleway:300,500" rel="stylesheet">
+  <link href="/static/css/simpligo-pln.css" rel="stylesheet">  
+  <link href="/static/css/font-awesome.min.css" rel="stylesheet">  
+
+  <style type="text/css">
+    .clozeSentence {
+      font-size: 25px;
+      margin-top:50px;
+    }
+    
+    .clozeWord {
+      font-size: 25px;
+      height: 50px;
+      width: 300px;
+    }
+
+    p {
+      text-align: justify;
+    }
+
+  </style>
+
+</head>
+<body>
+  <a href="https://github.com/sidleal/simpligo-cloze"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/652c5b9acfaddf3a9c326fa6bde407b87f7be0f4/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
+  
+  
+<div id="header">
+    <div id="logo">Simpligo.pln</div>
+    <div id="slogan">Plataforma de Apoio à Simplificação na Língua Portuguesa</div>
+  </div>
+  <div id="subheader"></div>
+  
+  <div class="row">
+    <div class="small-12 centered columns">
+      
+      <div id="inicio">
+        <div class="row">
+          <div class="small-12 large-8 columns centered">
+
+              <h2>Teste Cloze - Previsibilidade</h2>
+              <p>Olá! Você está na tela inicial de uma tarefa que necessita da sua colaboração! Obrigado por participar!</p>
+              <p>Nessa tarefa, você deverá tentar adivinhar o que vem escrito em alguns parágrafos. A cada vez, você verá uma frase com uma lacuna e deverá digitar, em um espaço abaixo da frase, uma palavra que poderia preencher a lacuna. Mas não se preocupe: antes irá passar por uma fase de treinamento para se habituar à tarefa.</p>
+              <p>Se concordar participar desta pesquisa, por favor, leia o texto (TCLE simplificado) abaixo e clique em concordar. Caso contrário, agradecemos sua boa vontade de ter lido até aqui.</p>
+              <p>A tarefa tem uma duração aproximada de 20 minutos e deve ser feita exclusivamente em computador.</p>
+              <!--
+              <p style="color:red;">TO DO: Trocar o vídeo!!!</p>
+              <div style="text-align: center;margin-bottom: 30px;">
+                <iframe width="100%" height="400px" src="https://www.youtube.com/embed/SPZ1J1iXon4?autoplay=0"></iframe>
+              </div>
+              -->
+              
+              [[ .Term ]]
+    
+              <div style="text-align: center;">
+                <button onclick="showForm('[[ .Code ]]');" style="margin:30px;" id="btnContinue" class="default"><i class="fa fa-play fa-2x"></i><br/>Concordo com o termo e quero continuar</button>
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="form" style="display:none">
+        <div class="row">
+          <div class="small-12 large-8 columns centered">
+            <h2>Dados do Participante</h2>
+            <p>Por favor, preencha os dados abaixo antes de continuar:</p>
+
+            <p style="text-align: center;"><a onclick="window.open('/cloze/term/[[ .Code ]]/'+$('#doc').val()+'.pdf');">Clique aqui para salvar sua cópia do Termo de Consentimento, se desejar.</a></p>
+
+            <label for="participantName">Qual seu nome?</label>
+            <input type="text" id="participantName" placeholder="Nome"/>
+            <label for="participantRG">Qual o número do seu RG?</label>
+            <input type="text" id="participantRG" placeholder="0000000-0"/>
+            <label for="participantAge">Qual sua idade?</label>
+            <input type="text" id="participantAge" placeholder="00"/>
+            <label for="participantGender">Qual seu gênero?</label>
+            <input type="text" id="participantGender" placeholder="Masculino,Feminino,..."/>
+            <label for="participantCourse">Qual seu curso de graduação?</label>
+            <input type="text" id="participantCourse" placeholder="Curso"/>
+            <label for="participantSem">Qual semestre está cursando atualmente?</label>
+            <input type="text" id="participantSem" placeholder="0"/>
+            <label for="participantLang">Você fala outra língua fluentemente? Enumere os cursos de línguas que fez/faz se a resposta da pergunta for positiva.</label>
+            <input type="text" id="participantLang" placeholder="Língua a, Língua b"/>
+            <label for="participantEmail">Email para contato:</label>
+            <input type="text" id="participantEmail" placeholder="nome@exemplo.com"/>
+
+            <p><br/><b>Informações opcionais:</b></p>
+
+            <label for="participantOrg">Universidade:</label>
+            <input type="text" id="participantOrg" placeholder="Universidade"/>
+            <label for="participantPhone">Telefone de contato:</label>
+            <input type="text" id="participantPhone" placeholder="(00)00000-0000"/>
+            <label for="participantCPF">CPF:</label>
+            <input type="text" id="participantCPF" placeholder="000.000.000-00"/>
+<!--
+            <label for="participantBirthdate">Data de nascimento:</label>
+            <input type="text" id="participantBirthdate" placeholder="dd/mm/aaaa"/>
+            <label for="participantDegree">Grau de instrução:</label>
+            <select id="participantDegree">
+              <option value="">Selecione...</option>
+              <option value="fund">Ensino Fundamental</option>
+              <option value="med">Ensino Médio</option>
+              <option value="sup">Ensino Superior</option>
+              <option value="pos">Pós-Graduação</option>
+            </select>
+            <label for="participantOrg">Universidade:</label>
+            <select id="participantOrg">
+              <option value="">Selecione...</option>
+              <option value="uspsc">USP - São Carlos</option>
+              <option value="ufc">Universidade Federal do Ceará</option>
+              <option value="pucrj">PUC - Rio de Janeiro</option>
+              <option value="utfpr">Universidade Tecn. Federal Paraná - Toledo</option>
+              <option value="ufabc">Universidade Federal do ABC</option>
+              <option value="uerj">Universidade Estadual do RJ</option>
+              <option value="outra">Outra</option> 
+            </select>
+
+            <label for="participantRA">Número de Registro:</label>
+            <input type="text" id="participantRA" placeholder="Registro Acadêmico"/>
+            <label for="participantSem">Semestre em curso:</label>
+            <select id="participantSem">
+                <option value="">Selecione...</option>
+                <option value="1">1.o Semestre</option>
+                <option value="2">2.o Semestre</option>
+                <option value="3">3.o Semestre</option>
+                <option value="4">4.o Semestre</option>
+                <option value="5">5.o Semestre</option>
+                <option value="6">6.o Semestre</option>
+                <option value="7">7.o Semestre</option>
+                <option value="8">8.o Semestre</option>
+              </select>
+  -->
+
+              <p>Bem, agora você vai passar pela fase de treinamento para entender como se faz a tarefa. Preparado(a)? Clique no botão abaixo:</p>
+
+            <div style="text-align: center;">
+              <button onclick="continueTest('[[ .Code ]]')" style="margin:30px;" id="btnContinue" class="default"><i class="fa fa-play fa-2x"></i><br/>Continuar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="train" style="display:none">
+        <div class="row">
+          <div class="small-12 large-8 columns centered">
+            <h2>Treinamento</h2>
+            <p>A princípio, você verá apenas a primeira palavra de um pequeno parágrafo, como abaixo. Seu papel é adicionar a palavra que você acredita vir a seguir. A cada palavra adicionada, o parágrafo será atualizado. Esse primeiro parágrafo é apenas um treino.</p>
+            <p>A maneira mais fácil de entender é praticando, portanto, mãos à obra!</p>
+
+            <p id="statusTestTrain" style="font-weight:bold;">Treinamento - Palavra x de xx</p>
+            <p>(Digite a próxima palavra e depois tecle enter, ou clique no botão.)</p>
+
+            <label id="clozeSentenceTrain" for="clozeWordTrain" class="clozeSentence">...</label>
+            <input type="text" id="clozeWordTrain" placeholder="" class="clozeWord"/>
+            <button onclick="nextWordTrainAction()" id="btnNextWordTrain" class="default" style="margin-top: 50px;">Próxima</button>
+
+            <p style="display:none" class="clozeSentence" id="msgEndTrain">A fase de treinamento terminou. Agora, pedimos que fique atento e que complete com a palavra que vem à sua cabeça à medida que vai lendo o parágrafo. Lembramos que você lê apenas a primeira palavra de cada sentença. A partir da segunda, já é sua tarefa propor uma palavra para complementar o texto.</p>
+            <button onclick="showApply()" style="display:none" id="btnShowApply" class="default" style="margin-top: 50px;">Começar o teste</button>
+ 
+          </div>
+        </div>
+      </div>
+
+      <div id="apply" style="display:none">
+        <div class="row">
+          <div class="small-12 large-8 columns centered">
+            <p id="statusTest">Teste x de x - Palavra x de xx</p>
+            <p>(Digite a próxima palavra e depois tecle enter, ou clique no botão.)</p>
+            <label id="clozeSentence" for="clozeWord" class="clozeSentence">...</label>
+            <input type="text" id="clozeWord" placeholder="" class="clozeWord"/>
+            <button onclick="nextWordAction()" id="btnNextWord" class="default" style="margin-top: 50px;">Próxima</button>
+
+            <p style="display:none" class="clozeSentence" id="msgEndParagraph">Parabéns! Você chegou ao final do parágrafo, agora vamos ao próximo!</p>
+            <button onclick="nextParagraph()" style="display:none" id="btnNextPar" class="default" style="margin-top: 50px;">Próximo Parágrafo</button>
+            
+            <p style="display:none" class="clozeSentence" id="msgEndTest"><b>O teste foi finalizado. Parabéns! Agradecemos imensamente sua participação. Pode fechar essa página. Tudo foi gravado corretamente.</b></p>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="/static/js/jquery.min.js"></script>
+  <script src="/static/js/jquery-ui.min.js"></script>
+  <script src="/static/js/simpligo-pln.js?[[ .StaticHash ]]"></script>
+  <script src="/static/js/cloze_apply.js?[[ .StaticHash ]]"></script>
+
+</body>
+</html>
